@@ -25,7 +25,7 @@ public class GridObject : MonoBehaviour
             GridManager.Instance.Unregister(this);
     }
 
-    void RegisterToGrid()
+    protected virtual void RegisterToGrid()
     {
         Vector3 pos = transform.localPosition;
 
@@ -39,10 +39,11 @@ public class GridObject : MonoBehaviour
         if (map != null)
         {
             GridPos = localGrid + map.mapOffset;
-            Debug.Log("?");
         }
         else
+        {
             GridPos = localGrid;
+        }
 
         GridManager.Instance.Register(this);
     }

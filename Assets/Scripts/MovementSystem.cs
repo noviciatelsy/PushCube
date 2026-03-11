@@ -52,6 +52,7 @@ public class MovementSystem : MonoBehaviour
         UndoSystem.Instance.RecordMove(player, player.GridPos);
 
         GridManager.Instance.MoveObject(player, target);
+        player.UpdateCurrentMap();
 
         UndoSystem.Instance.EndAction();
     }
