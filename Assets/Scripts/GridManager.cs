@@ -19,7 +19,8 @@ public class GridManager : MonoBehaviour
         if (!grid.ContainsKey(obj.GridPos))
             grid[obj.GridPos] = new List<GridObject>();
 
-        grid[obj.GridPos].Add(obj);
+        if (!grid[obj.GridPos].Contains(obj))
+            grid[obj.GridPos].Add(obj);
     }
 
     public void Unregister(GridObject obj)
@@ -28,6 +29,9 @@ public class GridManager : MonoBehaviour
             return;
 
         grid[obj.GridPos].Remove(obj);
+
+        if (grid[obj.GridPos].Count == 0)
+            grid.Remove(obj.GridPos);
     }
 
     public List<GridObject> GetObjects(Vector2Int pos)

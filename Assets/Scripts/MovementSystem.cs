@@ -27,12 +27,17 @@ public class MovementSystem : MonoBehaviour
 
         Box box = GridManager.Instance.GetBox(target);
 
+        UndoSystem.Instance.BeginAction();
+
         if (box != null)
         {
             Vector2Int boxTarget = box.GridPos + dir;
 
             if (GridManager.Instance.IsBlocked(boxTarget))
+            {
+                UndoSystem.Instance.EndAction();
                 return;
+            }
 
             UndoSystem.Instance.RecordMove(box, box.GridPos);
 
@@ -40,11 +45,14 @@ public class MovementSystem : MonoBehaviour
         }
         else if (GridManager.Instance.IsBlocked(target))
         {
+            UndoSystem.Instance.EndAction();
             return;
         }
 
         UndoSystem.Instance.RecordMove(player, player.GridPos);
 
         GridManager.Instance.MoveObject(player, target);
+
+        UndoSystem.Instance.EndAction();
     }
 }
