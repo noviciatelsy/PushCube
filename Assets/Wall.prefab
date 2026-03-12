@@ -46,6 +46,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   GridPos: {x: 2, y: 0}
+  objectType: 5
 --- !u!1 &7477792328683271769
 GameObject:
   m_ObjectHideFlags: 0

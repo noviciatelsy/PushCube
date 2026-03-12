@@ -10,6 +10,7 @@ public class UndoSystem : MonoBehaviour
         void Undo();
     }
 
+    // ---------------- MoveCommand ----------------
     class MoveCommand : IUndoCommand
     {
         GridObject obj;
@@ -28,24 +29,38 @@ public class UndoSystem : MonoBehaviour
         }
     }
 
+    // ---------------- DestroyCommand ----------------
     class DestroyCommand : IUndoCommand
     {
-        GameObject prefab;
+        GridObject obj;
         Vector2Int pos;
+        bool hideOnly;
 
-        public DestroyCommand(GameObject p, Vector2Int position)
+        public DestroyCommand(GridObject o, bool hideOnly = false)
         {
-            prefab = p;
-            pos = position;
+            obj = o;
+            pos = o.GridPos;
+            this.hideOnly = hideOnly;
+
+            GridManager.Instance.Unregister(obj);
+
+            if (!hideOnly)
+                GameObject.Destroy(obj.gameObject);
+            else
+                obj.gameObject.SetActive(false);
         }
 
         public void Undo()
         {
-            GameObject obj = Instantiate(prefab);
-            obj.transform.position = new Vector3(pos.x, 0, pos.y);
+            if (obj == null) return;
+
+            obj.gameObject.SetActive(true);
+            GridManager.Instance.Register(obj);
+            obj.SetGridPos(pos);
         }
     }
 
+    // ---------------- SpawnCommand ----------------
     class SpawnCommand : IUndoCommand
     {
         GameObject obj;
@@ -58,20 +73,19 @@ public class UndoSystem : MonoBehaviour
         public void Undo()
         {
             if (obj != null)
-                Destroy(obj);
+                obj.SetActive(false); // 删除新生成箱子时隐藏即可
         }
     }
 
+    // ---------------- ActionRecord ----------------
     class ActionRecord
     {
         public List<IUndoCommand> commands = new List<IUndoCommand>();
     }
 
     Stack<ActionRecord> history = new Stack<ActionRecord>();
-
     ActionRecord currentAction;
 
-    // ---------- Checkpoint ----------
     Stack<int> checkpoints = new Stack<int>();
 
     void Awake()
@@ -95,19 +109,13 @@ public class UndoSystem : MonoBehaviour
 
     void UndoToCheckpoint()
     {
-        if (checkpoints.Count == 0)
-            return;
-
+        if (checkpoints.Count == 0) return;
         int target = checkpoints.Peek();
-
         while (history.Count > target)
-        {
             Undo();
-        }
     }
 
-    // ---------- Action ----------
-
+    // ---------------- Action Recording ----------------
     public void BeginAction()
     {
         currentAction = new ActionRecord();
@@ -116,52 +124,38 @@ public class UndoSystem : MonoBehaviour
     public void RecordMove(GridObject obj, Vector2Int pos)
     {
         if (currentAction == null) return;
-
         currentAction.commands.Add(new MoveCommand(obj, pos));
     }
 
-    public void RecordDestroy(GridObject obj)
+    public void RecordDestroy(GridObject obj, bool hideOnly = false)
     {
         if (currentAction == null) return;
-
-        currentAction.commands.Add(
-            new DestroyCommand(obj.gameObject, obj.GridPos)
-        );
+        currentAction.commands.Add(new DestroyCommand(obj, hideOnly));
     }
 
     public void RecordSpawn(GridObject obj)
     {
         if (currentAction == null) return;
-
-        currentAction.commands.Add(
-            new SpawnCommand(obj.gameObject)
-        );
+        currentAction.commands.Add(new SpawnCommand(obj.gameObject));
     }
 
     public void EndAction()
     {
         if (currentAction != null && currentAction.commands.Count > 0)
             history.Push(currentAction);
-
         currentAction = null;
     }
 
+    // ---------------- Undo ----------------
     void Undo()
     {
-        if (history.Count == 0)
-            return;
-
+        if (history.Count == 0) return;
         var action = history.Pop();
 
         for (int i = action.commands.Count - 1; i >= 0; i--)
-        {
             action.commands[i].Undo();
-        }
 
-        //关键：维护 checkpoint 栈
         while (checkpoints.Count > 0 && history.Count < checkpoints.Peek())
-        {
             checkpoints.Pop();
-        }
     }
 }

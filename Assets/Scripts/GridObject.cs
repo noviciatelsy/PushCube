@@ -1,9 +1,26 @@
 using UnityEngine;
 using System.Collections;
 
+public enum GridObjectType
+{
+    Player,
+    Box,
+    MergeBox1,
+    MergeBox2,
+    MergeBox3,
+    Wall,
+    Ground
+}
+
 public class GridObject : MonoBehaviour
 {
     public Vector2Int GridPos;
+    public GridObjectType objectType;
+
+    protected virtual void Awake()
+    {
+       
+    }
 
     void OnEnable()
     {
@@ -24,24 +41,7 @@ public class GridObject : MonoBehaviour
             GridManager.Instance.Unregister(this);
     }
 
-    //protected virtual void RegisterToGrid()
-    //{
-    //    Vector3 pos = transform.position;
 
-    //    Vector2Int localGrid = new Vector2Int(
-    //        Mathf.RoundToInt(pos.x),
-    //        Mathf.RoundToInt(pos.z)
-    //    );
-
-    //    MapRoot map = GetComponentInParent<MapRoot>();
-
-    //    if (map != null)
-    //        GridPos = localGrid + map.mapOffset;
-    //    else
-    //        GridPos = localGrid;
-
-    //    GridManager.Instance.Register(this);
-    //}
     protected virtual void RegisterToGrid()
     {
         Vector3 pos = transform.position;
