@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class MovementSystem : MonoBehaviour
@@ -25,13 +23,49 @@ public class MovementSystem : MonoBehaviour
     {
         Vector2Int target = player.GridPos + dir;
 
-        Box box = GridManager.Instance.GetBox(target);
+        // 必须有地面
+        if (!GridManager.Instance.HasGround(target))
+        {
+            //Debug.Log("Cant find ground");
+            return;
+        }
+
+        Box box = GridManager.Instance.GetObject<Box>(target);
 
         UndoSystem.Instance.BeginAction();
 
         if (box != null)
         {
             Vector2Int boxTarget = box.GridPos + dir;
+
+            if (!GridManager.Instance.HasGround(boxTarget))
+            {
+                UndoSystem.Instance.EndAction();
+                return;
+            }
+
+            Box frontBox = GridManager.Instance.GetObject<Box>(boxTarget);
+
+            // 合成逻辑
+            if (box is MergeBox mb1 && frontBox is MergeBox mb2)
+            {
+                if (mb1.CanMerge(mb2))
+                {
+                    UndoSystem.Instance.RecordDestroy(mb1);
+                    UndoSystem.Instance.RecordDestroy(mb2);
+
+                    MergeBox newBox = mb1.MergeWith(mb2);
+
+                    UndoSystem.Instance.RecordSpawn(newBox);
+
+                    UndoSystem.Instance.RecordMove(player, player.GridPos);
+
+                    GridManager.Instance.MoveObject(player, target);
+
+                    UndoSystem.Instance.EndAction();
+                    return;
+                }
+            }
 
             if (GridManager.Instance.IsBlocked(boxTarget))
             {
@@ -43,15 +77,11 @@ public class MovementSystem : MonoBehaviour
 
             GridManager.Instance.MoveObject(box, boxTarget);
         }
-        else if (GridManager.Instance.IsBlocked(target))
-        {
-            UndoSystem.Instance.EndAction();
-            return;
-        }
 
         UndoSystem.Instance.RecordMove(player, player.GridPos);
 
         GridManager.Instance.MoveObject(player, target);
+
         player.UpdateCurrentMap();
 
         UndoSystem.Instance.EndAction();

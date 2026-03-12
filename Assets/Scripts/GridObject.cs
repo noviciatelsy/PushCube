@@ -12,7 +12,6 @@ public class GridObject : MonoBehaviour
 
     IEnumerator RegisterWhenReady()
     {
-        // µÈ´ý GridManager ³õÊ¼»¯
         while (GridManager.Instance == null)
             yield return null;
 
@@ -25,25 +24,32 @@ public class GridObject : MonoBehaviour
             GridManager.Instance.Unregister(this);
     }
 
+    //protected virtual void RegisterToGrid()
+    //{
+    //    Vector3 pos = transform.position;
+
+    //    Vector2Int localGrid = new Vector2Int(
+    //        Mathf.RoundToInt(pos.x),
+    //        Mathf.RoundToInt(pos.z)
+    //    );
+
+    //    MapRoot map = GetComponentInParent<MapRoot>();
+
+    //    if (map != null)
+    //        GridPos = localGrid + map.mapOffset;
+    //    else
+    //        GridPos = localGrid;
+
+    //    GridManager.Instance.Register(this);
+    //}
     protected virtual void RegisterToGrid()
     {
-        Vector3 pos = transform.localPosition;
+        Vector3 pos = transform.position;
 
-        Vector2Int localGrid = new Vector2Int(
+        GridPos = new Vector2Int(
             Mathf.RoundToInt(pos.x),
             Mathf.RoundToInt(pos.z)
         );
-
-        MapRoot map = GetComponentInParent<MapRoot>();
-
-        if (map != null)
-        {
-            GridPos = localGrid + map.mapOffset;
-        }
-        else
-        {
-            GridPos = localGrid;
-        }
 
         GridManager.Instance.Register(this);
     }
@@ -55,12 +61,14 @@ public class GridObject : MonoBehaviour
 
     public void SetGridPos(Vector2Int pos)
     {
-        GridManager.Instance.Unregister(this);
+        GridManager.Instance.MoveObject(this, pos);
+    }
 
-        GridPos = pos;
+    public void ForceRegister()
+    {
+        if (GridManager.Instance == null)
+            return;
 
-        transform.position = new Vector3(pos.x, 0, pos.y);
-
-        GridManager.Instance.Register(this);
+        RegisterToGrid();
     }
 }
