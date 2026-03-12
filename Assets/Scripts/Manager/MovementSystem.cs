@@ -20,85 +20,90 @@ public class MovementSystem : MonoBehaviour
     {
         Vector2Int target = player.GridPos + dir;
 
-        // 1️⃣ 检查目标格子是否有地面
+        // 目标格子必须有地面
         if (!GridManager.Instance.HasGround(target))
-            return;
-
-        // 2️⃣ 检查目标格子是否被阻挡（墙或不可推动箱子）
-        GridObject targetObj = GridManager.Instance.GetTopObject(target); // 获取格子上最上层物体
-        if (targetObj != null && targetObj.IsBlocking())
         {
-            // 如果是箱子，尝试推动
-            if (targetObj is Box box)
+            Debug.Log("1");
+            return;
+        }
+
+        Wall wall = GridManager.Instance.GetObject<Wall>(target);
+        Door door = GridManager.Instance.GetObject<Door>(target);
+        if (wall != null)
+        {
+            Debug.Log("2");
+            return;
+        }
+        if (door != null && !door.isOpen)
+        {
+            Debug.Log("3");
+            return;
+        }
+        Box box = GridManager.Instance.GetObject<Box>(target);
+
+        UndoSystem.Instance.BeginAction();
+
+        // -------- 玩家前方有箱子 --------
+        if (box != null)
+        {
+            Vector2Int boxTarget = box.GridPos + dir;
+
+            // 箱子前方有地面才能尝试推动
+            if (!GridManager.Instance.HasGround(boxTarget))
             {
-                Vector2Int boxTarget = box.GridPos + dir;
+                UndoSystem.Instance.EndAction();
+                return;
+            }
 
-                // 箱子前方必须有地面
-                if (!GridManager.Instance.HasGround(boxTarget))
-                    return;
+            Box frontBox = GridManager.Instance.GetObject<Box>(boxTarget);
 
-                GridObject boxFront = GridManager.Instance.GetTopObject(boxTarget);
-
-                // 箱子前方阻挡物
-                if (boxFront != null)
+            // -------- 合成逻辑 --------
+            if (box is MergeBox mb1 && frontBox is MergeBox mb2 && mb1.CanMerge(mb2))
+            {
+                // 合成前必须箱子无法移动才允许合成
+                if (GridManager.Instance.IsBlocked(boxTarget))
                 {
-                    // -------- Merge Logic --------
-                    if (box is MergeBox mb1 && boxFront is MergeBox mb2 && mb1.CanMerge(mb2))
-                    {
-                        // 合成前必须箱子无法移动才允许合成
-                        if (boxFront.IsBlocking())
-                        {
-                            UndoSystem.Instance.BeginAction();
+                    // 隐藏旧箱子
+                    UndoSystem.Instance.RecordDestroy(mb1, hideOnly: true);
+                    UndoSystem.Instance.RecordDestroy(mb2, hideOnly: true);
 
-                            UndoSystem.Instance.RecordDestroy(mb1, hideOnly: true);
-                            UndoSystem.Instance.RecordDestroy(mb2, hideOnly: true);
+                    // 生成新箱子
+                    MergeBox newBox = mb1.MergeWith(mb2);
+                    UndoSystem.Instance.RecordSpawn(newBox);
 
-                            MergeBox newBox = mb1.MergeWith(mb2);
-                            UndoSystem.Instance.RecordSpawn(newBox);
-
-                            UndoSystem.Instance.RecordMove(player, player.GridPos);
-                            GridManager.Instance.MoveObject(player, target);
-
-                            UndoSystem.Instance.EndAction();
-                            return;
-                        }
-                        else
-                        {
-                            // 前方空格不能合成
-                            return;
-                        }
-                    }
-                    else
-                    {
-                        // 箱子前方被墙或其他阻挡，无法推动
-                        return;
-                    }
-                }
-                else
-                {
-                    // 推动箱子
-                    UndoSystem.Instance.BeginAction();
-                    UndoSystem.Instance.RecordMove(box, box.GridPos);
-                    GridManager.Instance.MoveObject(box, boxTarget);
-
+                    // 移动玩家
                     UndoSystem.Instance.RecordMove(player, player.GridPos);
                     GridManager.Instance.MoveObject(player, target);
-                    player.UpdateCurrentMap();
+
                     UndoSystem.Instance.EndAction();
                     return;
                 }
+                else
+                {
+                    // 后面有空地，不能合成，只能推动
+                    frontBox = null;
+                }
             }
-            else
+
+            // -------- 推动普通箱子 --------
+            if (frontBox == null && !GridManager.Instance.IsBlocked(boxTarget))
             {
-                // 目标格子被墙或其他阻挡物阻挡，玩家不能移动
+                UndoSystem.Instance.RecordMove(box, box.GridPos);
+                GridManager.Instance.MoveObject(box, boxTarget);
+            }
+            else if (frontBox != null || GridManager.Instance.IsBlocked(boxTarget))
+            {
+                // 箱子后面被阻挡，无法推动
+                UndoSystem.Instance.EndAction();
                 return;
             }
         }
+        else Debug.Log("4");
 
-        // 3️⃣ 普通移动玩家
-        UndoSystem.Instance.BeginAction();
+        // -------- 移动玩家 --------
         UndoSystem.Instance.RecordMove(player, player.GridPos);
         GridManager.Instance.MoveObject(player, target);
+
         player.UpdateCurrentMap();
         UndoSystem.Instance.EndAction();
     }

@@ -9,7 +9,8 @@ public enum GridObjectType
     MergeBox2,
     MergeBox3,
     Wall,
-    Ground
+    Ground,
+    Door
 }
 
 public class GridObject : MonoBehaviour
