@@ -3929,6 +3929,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: fd3b240cc5f4ea844826cf4486f9bf45, type: 3}
+--- !u!4 &367026703 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 9029699385416759828, guid: fd3b240cc5f4ea844826cf4486f9bf45, type: 3}
+  m_PrefabInstance: {fileID: 367026702}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &380013769
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -24144,6 +24149,10 @@ MonoBehaviour:
   linkedDoors:
   - {fileID: 1632901981}
   - {fileID: 2109649041}
+  islands: {fileID: 367026703}
+  closedPos: {x: 0, y: -20, z: 0}
+  openPos: {x: 0, y: 0, z: 0}
+  moveTime: 0.1
 --- !u!1001 &1794113024
 PrefabInstance:
   m_ObjectHideFlags: 0

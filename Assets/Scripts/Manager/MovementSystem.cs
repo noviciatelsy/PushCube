@@ -110,15 +110,6 @@ public class MovementSystem : MonoBehaviour
 
         Box box = GridManager.Instance.GetBoxAt(target);
 
-        if (box != null)
-        {
-            //Debug.Log($"[Move] Box detected at {target}, type={box.GetType().Name}, occupies: {string.Join(",", box.GetOccupiedCells())}");
-        }
-        else
-        {
-            Debug.Log($"[Move] No box at {target}");
-        }
-
         UndoSystem.Instance.BeginAction();
 
         // -------- 玩家前方有箱子 --------
