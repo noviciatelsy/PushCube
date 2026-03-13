@@ -85,12 +85,8 @@ public class MovementSystem : MonoBehaviour
 
     void TryMove(Vector2Int dir)
     {
-        Debug.Log($"[Move] Player at {player.GridPos} dir {dir}");
 
         Vector2Int target = player.GridPos + dir;
-
-        Debug.Log($"[Move] Target = {target}");
-
 
         // 目标格子必须有地面
         if (!GridManager.Instance.HasGround(target))
@@ -116,7 +112,7 @@ public class MovementSystem : MonoBehaviour
 
         if (box != null)
         {
-            Debug.Log($"[Move] Box detected at {target}, type={box.GetType().Name}, occupies: {string.Join(",", box.GetOccupiedCells())}");
+            //Debug.Log($"[Move] Box detected at {target}, type={box.GetType().Name}, occupies: {string.Join(",", box.GetOccupiedCells())}");
         }
         else
         {
@@ -333,27 +329,23 @@ public class MovementSystem : MonoBehaviour
         var cells = box.GetOccupiedCells();
         var result = new System.Collections.Generic.List<Vector2Int>();
 
-        Debug.Log($"[BoxCheck] Checking front cells for {box.name}");
+        //Debug.Log($"[BoxCheck] Checking front cells for {box.name}");
 
         foreach (var c in cells)
         {
             Vector2Int front = c + dir;
 
-            Debug.Log($"[BoxCheck] cell {c} -> front {front}");
+            //Debug.Log($"[BoxCheck] cell {c} -> front {front}");
 
             if (cells.Contains(front))
             {
-                Debug.Log($"[BoxCheck] skip internal {front}");
+                //Debug.Log($"[BoxCheck] skip internal {front}");
                 continue;
             }
 
             result.Add(front);
         }
 
-        foreach (var r in result)
-        {
-            Debug.Log($"[BoxCheck] FRONT CELL = {r}");
-        }
 
         return result;
     }

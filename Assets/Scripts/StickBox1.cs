@@ -9,12 +9,8 @@ public class StickyBox1 : Box
     {
         base.RegisterToGrid();
 
-        Debug.Log($"[StickyBox] Register basePos = {GridPos}");
+        //Debug.Log($"[StickyBox] Register basePos = {GridPos}");
 
-        foreach (var c in GetOccupiedCells())
-        {
-            Debug.Log($"[StickyBox] Occupy cell {c}");
-        }
     }
 
     public override List<Vector2Int> GetOccupiedCells()

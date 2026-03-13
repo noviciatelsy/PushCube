@@ -24,12 +24,11 @@ public class Door : GridObject
     protected override void Awake()
     {
         base.Awake();
-        isOpen = false;
         if (cubes != null)
         {
             cubes.localPosition = closedPos;
-            targetPos = closedPos;
             startPos = closedPos;
+            targetPos = closedPos;
         }
 
         ForceRegister();
@@ -37,31 +36,33 @@ public class Door : GridObject
 
     void Update()
     {
-        // 检查压力板状态
+        // ----------------------------
+        // 原本绑定板子的检测逻辑保留
+        // ----------------------------
         bool allPressed = true;
-        if(linkedPlates == null || linkedPlates.Count == 0)
+        if (linkedPlates != null && linkedPlates.Count > 0)
         {
-            allPressed = false; // 没有绑定压力板，默认不开门
-        }
-        foreach (var plate in linkedPlates)
-        {
-            if (plate == null || !plate.pressed)
+            foreach (var plate in linkedPlates)
             {
-                allPressed = false;
-                break;
+                if (plate == null || !plate.pressed)
+                {
+                    allPressed = false;
+                    break;
+                }
+            }
+
+            if (allPressed != isOpen)
+            {
+                isOpen = allPressed;
+                startPos = cubes.localPosition;
+                targetPos = isOpen ? openPos : closedPos;
+                animProgress = 0f;
             }
         }
 
-        // 如果开关状态变化，设置动画目标
-        if (allPressed != isOpen)
-        {
-            isOpen = allPressed;
-            startPos = cubes.localPosition;
-            targetPos = isOpen ? openPos : closedPos;
-            animProgress = 0f;
-        }
-
-        // 平滑插值移动 cubes
+        // ----------------------------
+        // 动画插值
+        // ----------------------------
         if (cubes != null && animProgress < 1f)
         {
             animProgress += Time.deltaTime / moveTime;
@@ -73,5 +74,21 @@ public class Door : GridObject
     public override bool IsBlocking()
     {
         return !isOpen;
+    }
+
+    // ----------------------------
+    // ElectricGroundController 控制接口
+    // ----------------------------
+    public void SetOpenFromController(bool open)
+    {
+        if (isOpen == open) return;
+
+        isOpen = open;
+        if (cubes != null)
+        {
+            startPos = cubes.localPosition;
+            targetPos = isOpen ? openPos : closedPos;
+            animProgress = 0f;
+        }
     }
 }
