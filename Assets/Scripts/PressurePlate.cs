@@ -59,7 +59,7 @@ public class PressurePlate : Ground
 
     protected virtual void OnPress()
     {
-        Debug.Log("Pressure Plate Pressed");
+        //Debug.Log("Pressure Plate Pressed");
     }
 
     protected virtual void OnRelease()

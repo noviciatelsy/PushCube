@@ -31,41 +31,61 @@ public class GridManager : MonoBehaviour
     }
 
     // 注册
+    // 注册
     public void Register(GridObject obj)
     {
-        var cell = GetOrCreateCell(obj.GridPos);
-
         if (obj is Ground g)
         {
+            var cell = GetOrCreateCell(obj.GridPos);
             cell.ground = g;
+        }
+        else if (obj is Box box)
+        {
+            // 注册 box 所有占据格子
+            foreach (var pos in box.GetOccupiedCells())
+            {
+                var cell = GetOrCreateCell(pos);
+                if (!cell.objects.Contains(box))
+                    cell.objects.Add(box);
+            }
         }
         else
         {
+            var cell = GetOrCreateCell(obj.GridPos);
             if (!cell.objects.Contains(obj))
                 cell.objects.Add(obj);
         }
     }
 
     // 注销
+    // 注销
     public void Unregister(GridObject obj)
     {
-        var cell = GetCell(obj.GridPos);
-
-        if (cell == null)
-            return;
-
         if (obj is Ground)
         {
-            if (cell.ground == obj)
+            var cell = GetCell(obj.GridPos);
+            if (cell != null && cell.ground == obj)
                 cell.ground = null;
+
+            if (cell != null && cell.ground == null && cell.objects.Count == 0)
+                grid.Remove(obj.GridPos);
+        }
+        else if (obj is Box box)
+        {
+            // 移除 box 占据的所有格子
+            foreach (var pos in box.GetOccupiedCells())
+            {
+                var cell = GetCell(pos);
+                if (cell != null)
+                    cell.objects.Remove(box);
+            }
         }
         else
         {
-            cell.objects.Remove(obj);
+            var cell = GetCell(obj.GridPos);
+            if (cell != null)
+                cell.objects.Remove(obj);
         }
-
-        if (cell.ground == null && cell.objects.Count == 0)
-            grid.Remove(obj.GridPos);
     }
 
     // 是否有地面
@@ -80,12 +100,28 @@ public class GridManager : MonoBehaviour
     public bool IsBlocked(Vector2Int pos)
     {
         var cell = GetCell(pos);
+        if (cell == null) return true;
 
-        if (cell == null)
-            return false;
+        foreach (var obj in cell.objects)
+        {
+            if (obj.IsBlocking())
+            {
+                if (obj is Box box)
+                {
+                    // 检查 box 占据格子
+                    if (box.GetOccupiedCells().Contains(pos))
+                        return true;
+                }
+                else
+                {
+                    return true;
+                }
+            }
+        }
 
-        return cell.IsBlocked();
+        return false;
     }
+
 
     // 获取对象
     public T GetObject<T>(Vector2Int pos) where T : GridObject
@@ -107,6 +143,28 @@ public class GridManager : MonoBehaviour
         obj.transform.position = new Vector3(newPos.x, 0, newPos.y);
 
         Register(obj);
+    }
+
+    public void MoveObject(Box box, Vector2Int target)
+    {
+        // 移除旧格子
+        foreach (var cellPos in box.GetOccupiedCells())
+        {
+            var cell = GetCell(cellPos);
+            if (cell != null)
+                cell.objects.Remove(box);
+        }
+
+        // 更新 GridPos
+        box.GridPos = target;
+
+        // 注册新格子
+        foreach (var cellPos in box.GetOccupiedCells())
+        {
+            var cell = GetOrCreateCell(cellPos);  // 使用 GetOrCreateCell 避免 null
+            if (!cell.objects.Contains(box))
+                cell.objects.Add(box);
+        }
     }
 
     // 返回当前场景中所有 Box（StickyBox/普通Box）
