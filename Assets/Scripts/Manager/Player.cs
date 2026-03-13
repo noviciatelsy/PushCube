@@ -17,12 +17,18 @@ public class Player : GridObject
         var cell = GridManager.Instance.GetCell(GridPos);
 
         if (cell == null)
+        {
+            Debug.Log("11");
             return;
+        }
 
         if (cell.ground == null)
+        {
+            Debug.Log("22");
             return;
+        }
 
-        
+        Debug.Log(GridPos);
         MapRoot map = cell.ground.GetComponentInParent<MapRoot>();
 
         if (map != currentMap)

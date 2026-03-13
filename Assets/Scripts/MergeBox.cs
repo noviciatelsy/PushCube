@@ -14,9 +14,20 @@ public class MergeBox : Box
         if (other.level != level)
             return false;
 
-        // 获取移动方向：假设前方是向 other 的方向
+        Debug.Log($"[MERGE CHECK] this={name} pos={GridPos} other={other.name} pos={other.GridPos}");
+
         Vector2Int dir = other.GridPos - this.GridPos;
+
+        Debug.Log($"[MERGE CHECK] dir={dir}");
+
         Vector2Int targetPos = other.GridPos + dir;
+
+        Debug.Log($"[MERGE CHECK] target={targetPos}");
+
+        bool hasGround = GridManager.Instance.HasGround(targetPos);
+        bool blocked = GridManager.Instance.IsBlocked(targetPos);
+
+        Debug.Log($"[MERGE CHECK] ground={hasGround} blocked={blocked}");
 
         // 如果后面没有格子，也算无法移动（可以合成）
         if (!GridManager.Instance.HasGround(targetPos))

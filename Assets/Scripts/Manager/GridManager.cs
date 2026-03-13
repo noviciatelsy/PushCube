@@ -31,7 +31,6 @@ public class GridManager : MonoBehaviour
     }
 
     // 注册
-    // 注册
     public void Register(GridObject obj)
     {
         if (obj is Ground g)
@@ -58,7 +57,6 @@ public class GridManager : MonoBehaviour
     }
 
     // 注销
-    // 注销
     public void Unregister(GridObject obj)
     {
         if (obj is Ground)
@@ -76,8 +74,13 @@ public class GridManager : MonoBehaviour
             foreach (var pos in box.GetOccupiedCells())
             {
                 var cell = GetCell(pos);
-                if (cell != null)
-                    cell.objects.Remove(box);
+
+                if (cell == null) continue;
+
+                cell.objects.Remove(box);
+
+                if (cell.ground == null && cell.objects.Count == 0)
+                    grid.Remove(pos);
             }
         }
         else
@@ -190,10 +193,12 @@ public class GridManager : MonoBehaviour
     // 返回目标格子上的 Box（支持多格子 StickyBox）
     public Box GetBoxAt(Vector2Int pos)
     {
-        foreach (var box in GetAllBoxes())
+        var cell = GetCell(pos);
+        if (cell == null) return null;
+
+        foreach (var obj in cell.objects)
         {
-            var occupied = box.GetOccupiedCells();
-            if (occupied.Contains(pos))
+            if (obj is Box box)
                 return box;
         }
 

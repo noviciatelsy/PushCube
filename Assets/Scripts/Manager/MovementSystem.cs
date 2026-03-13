@@ -103,30 +103,52 @@ public class MovementSystem : MonoBehaviour
 
         if (box != null)
         {
-            // 获取前沿格子
-            var frontCells = GetBoxFrontCells(box, dir);
+            Vector2Int boxFront = box.GridPos + dir;
+            Box frontBox = GridManager.Instance.GetBoxAt(boxFront);
 
-            // 检查是否可以推动
-            bool canMove = true;
-            foreach (var cell in frontCells)
+            // =========================
+            // 1 先判断 Merge
+            // =========================
+            if (box is MergeBox mb1 && frontBox is MergeBox mb2 && mb1.CanMerge(mb2))
             {
-                if (!GridManager.Instance.HasGround(cell) || GridManager.Instance.IsBlocked(cell))
+                Debug.Log("[Merge] Boxes merging");
+
+                UndoSystem.Instance.RecordDestroy(mb1, true);
+                UndoSystem.Instance.RecordDestroy(mb2, true);
+
+                MergeBox newBox = mb1.MergeWith(mb2);
+                UndoSystem.Instance.RecordSpawn(newBox);
+
+                UndoSystem.Instance.RecordMove(player, player.GridPos);
+                GridManager.Instance.MoveObject(player, target);
+
+                UndoSystem.Instance.EndAction();
+                return;
+            }
+            else
+            {
+                if (box is MergeBox && frontBox is MergeBox)
                 {
-                    canMove = false;
-                    break;
+                    Debug.Log("No1");
+                }
+                else
+                {
+                    Debug.Log("No2");
                 }
             }
 
-            if (!canMove)
+            // =========================
+            // 2 推动检测
+            // =========================
+
+            if (!CanMoveBox(box, dir))
             {
                 UndoSystem.Instance.EndAction();
                 return;
             }
 
-            // 计算整体移动偏移量
             Vector2Int moveDelta = dir;
 
-            // 实际移动 Box 所有占据格子
             Vector3 boxStart = box.transform.position;
             Vector3 boxEnd = boxStart + new Vector3(moveDelta.x, 0, moveDelta.y);
 
@@ -136,7 +158,10 @@ public class MovementSystem : MonoBehaviour
             StartCoroutine(AnimateMove(box.transform, boxStart, boxEnd));
         }
 
-        // 玩家冰面滑行
+        // =========================
+        // 玩家滑行
+        // =========================
+
         if (IsIce(target))
         {
             Vector2Int slideEnd = GetPlayerSlideEnd(target, dir);
@@ -154,7 +179,10 @@ public class MovementSystem : MonoBehaviour
             return;
         }
 
-        // 普通玩家移动
+        // =========================
+        // 普通移动
+        // =========================
+
         Vector3 start = player.transform.position;
         Vector3 end = start + new Vector3(dir.x, 0, dir.y);
 
@@ -166,6 +194,8 @@ public class MovementSystem : MonoBehaviour
         player.UpdateCurrentMap();
         UndoSystem.Instance.EndAction();
     }
+
+
     System.Collections.IEnumerator AnimateMove(Transform obj, Vector3 start, Vector3 end)
     {
         isMoving = true;

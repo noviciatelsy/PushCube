@@ -57,25 +57,32 @@ public class UndoSystem : MonoBehaviour
             if (obj == null) return;
 
             obj.gameObject.SetActive(true);
+
+            obj.GridPos = pos;
+            obj.transform.position = new Vector3(pos.x, 0, pos.y);
+
             GridManager.Instance.Register(obj);
-            obj.SetGridPos(pos);
         }
     }
 
     // ---------------- SpawnCommand ----------------
     class SpawnCommand : IUndoCommand
     {
-        GameObject obj;
+        GridObject obj;
 
-        public SpawnCommand(GameObject o)
+        public SpawnCommand(GridObject o)
         {
             obj = o;
         }
 
         public void Undo()
         {
-            if (obj != null)
-                obj.SetActive(false); // 删除新生成箱子时隐藏即可
+            if (obj == null) return;
+
+            //关键修复
+            GridManager.Instance.Unregister(obj);
+
+            obj.gameObject.SetActive(false);
         }
     }
 
@@ -171,7 +178,8 @@ public class UndoSystem : MonoBehaviour
     public void RecordSpawn(GridObject obj)
     {
         if (currentAction == null) return;
-        currentAction.commands.Add(new SpawnCommand(obj.gameObject));
+
+        currentAction.commands.Add(new SpawnCommand(obj));
     }
 
     public void EndAction()
