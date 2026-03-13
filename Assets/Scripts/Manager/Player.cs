@@ -31,7 +31,8 @@ public class Player : GridObject
 
             Debug.Log("Enter Map: " + map.name);
 
-            UndoSystem.Instance.SetCheckpoint();
+            //UndoSystem.Instance.SetCheckpoint();
+            UndoSystem.Instance.SetCheckpoint(map);
         }
     }
 }

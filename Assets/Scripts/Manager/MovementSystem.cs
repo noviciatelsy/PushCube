@@ -3,9 +3,14 @@
 public class MovementSystem : MonoBehaviour
 {
     public Player player;
+    private float moveDuration = 0.1f;
 
+    bool isMoving = false;
     void Update()
     {
+        if (isMoving)
+            return;
+
         if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow))
             TryMove(Vector2Int.up);
         if (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow))
@@ -14,6 +19,68 @@ public class MovementSystem : MonoBehaviour
             TryMove(Vector2Int.left);
         if (Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow))
             TryMove(Vector2Int.right);
+    }
+
+    // ==============================
+    // [ICE NEW] 判断是否冰面
+    // ==============================
+    bool IsIce(Vector2Int pos)
+    {
+        var cell = GridManager.Instance.GetCell(pos);
+        if (cell == null) return false;
+        return cell.ground is IceGround;
+    }
+
+    // ==============================
+    // [ICE NEW] 玩家滑行
+    // ==============================
+    Vector2Int GetPlayerSlideEnd(Vector2Int start, Vector2Int dir)
+    {
+        Vector2Int pos = start;
+
+        while (true)
+        {
+            Vector2Int next = pos + dir;
+
+            if (!GridManager.Instance.HasGround(next))
+                break;
+
+            if (GridManager.Instance.IsBlocked(next))
+                break;
+
+            pos = next;
+
+            if (!IsIce(pos))
+                break;
+        }
+
+        return pos;
+    }
+
+    // ==============================
+    // [ICE NEW] 箱子滑行
+    // ==============================
+    Vector2Int GetBoxSlideEnd(Vector2Int start, Vector2Int dir)
+    {
+        Vector2Int pos = start;
+
+        while (true)
+        {
+            Vector2Int next = pos + dir;
+
+            if (!GridManager.Instance.HasGround(next))
+                break;
+
+            if (GridManager.Instance.IsBlocked(next))
+                break;
+
+            pos = next;
+
+            if (!IsIce(pos))
+                break;
+        }
+
+        return pos;
     }
 
     void TryMove(Vector2Int dir)
@@ -85,11 +152,42 @@ public class MovementSystem : MonoBehaviour
                 }
             }
 
+            // ======================================
+            // [ICE MODIFY] 冰面箱子滑行
+            // ======================================
+            if (IsIce(boxTarget))
+            {
+                //Vector2Int slideEnd = GetBoxSlideEnd(boxTarget, dir);
+
+                //UndoSystem.Instance.RecordMove(box, box.GridPos);
+                //GridManager.Instance.MoveObject(box, slideEnd);
+
+                Vector2Int slideEnd = GetBoxSlideEnd(boxTarget, dir);
+
+                Vector3 boxStart = box.transform.position;
+                Vector3 boxEnd = new Vector3(slideEnd.x, 0, slideEnd.y);
+
+                UndoSystem.Instance.RecordMove(box, box.GridPos);
+                GridManager.Instance.MoveObject(box, slideEnd);
+
+                StartCoroutine(AnimateMove(box.transform, boxStart, boxEnd));
+                // 玩家不移动
+                UndoSystem.Instance.EndAction();
+                return;
+            }
+
             // -------- 推动普通箱子 --------
             if (frontBox == null && !GridManager.Instance.IsBlocked(boxTarget))
             {
+                //UndoSystem.Instance.RecordMove(box, box.GridPos);
+                //GridManager.Instance.MoveObject(box, boxTarget);
+                Vector3 boxStart = box.transform.position;
+                Vector3 boxEnd = new Vector3(boxTarget.x, 0, boxTarget.y);
+
                 UndoSystem.Instance.RecordMove(box, box.GridPos);
                 GridManager.Instance.MoveObject(box, boxTarget);
+
+                StartCoroutine(AnimateMove(box.transform, boxStart, boxEnd));
             }
             else if (frontBox != null || GridManager.Instance.IsBlocked(boxTarget))
             {
@@ -103,9 +201,40 @@ public class MovementSystem : MonoBehaviour
         }
         else Debug.Log("4");
 
+        // ======================================
+        // [ICE MODIFY] 玩家滑行
+        // ======================================
+        if (IsIce(target))
+        {
+            //Vector2Int slideEnd = GetPlayerSlideEnd(target, dir);
+
+            //UndoSystem.Instance.RecordMove(player, player.GridPos);
+            //GridManager.Instance.MoveObject(player, slideEnd);
+            Vector2Int slideEnd = GetPlayerSlideEnd(target, dir);
+
+            Vector3 start1 = player.transform.position;
+            Vector3 end1 = new Vector3(slideEnd.x, 0, slideEnd.y);
+
+            UndoSystem.Instance.RecordMove(player, player.GridPos);
+            GridManager.Instance.MoveObject(player, slideEnd);
+
+            StartCoroutine(AnimateMove(player.transform, start1, end1));
+
+            player.UpdateCurrentMap();
+            UndoSystem.Instance.EndAction();
+            return;
+        }
+
         // -------- 移动玩家 --------
+        //UndoSystem.Instance.RecordMove(player, player.GridPos);
+        //GridManager.Instance.MoveObject(player, target);
+        Vector3 start = player.transform.position;
+        Vector3 end = new Vector3(target.x, 0, target.y);
+
         UndoSystem.Instance.RecordMove(player, player.GridPos);
         GridManager.Instance.MoveObject(player, target);
+
+        StartCoroutine(AnimateMove(player.transform, start, end));
 
         player.UpdateCurrentMap();
         UndoSystem.Instance.EndAction();
@@ -139,5 +268,51 @@ public class MovementSystem : MonoBehaviour
 
             UndoSystem.Instance.EndAction();
         }
+    }
+
+    System.Collections.IEnumerator AnimateMove(Transform obj, Vector3 start, Vector3 end)
+    {
+        float t = 0;
+
+        while (t < moveDuration)
+        {
+            t += Time.deltaTime;
+            float p = t / moveDuration;
+
+            obj.position = Vector3.Lerp(start, end, p);
+
+            yield return null;
+        }
+
+        obj.position = end;
+    }
+
+    System.Collections.IEnumerator AnimateObjects(
+    Transform playerT, Vector3 playerStart, Vector3 playerEnd,
+    Transform boxT = null, Vector3 boxStart = default, Vector3 boxEnd = default)
+    {
+        isMoving = true;
+
+        float t = 0;
+
+        while (t < moveDuration)
+        {
+            t += Time.deltaTime;
+            float p = t / moveDuration;
+
+            playerT.position = Vector3.Lerp(playerStart, playerEnd, p);
+
+            if (boxT != null)
+                boxT.position = Vector3.Lerp(boxStart, boxEnd, p);
+
+            yield return null;
+        }
+
+        playerT.position = playerEnd;
+
+        if (boxT != null)
+            boxT.position = boxEnd;
+
+        isMoving = false;
     }
 }
