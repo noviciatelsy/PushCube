@@ -22,6 +22,7 @@ public class Player : GridObject
         if (cell.ground == null)
             return;
 
+        
         MapRoot map = cell.ground.GetComponentInParent<MapRoot>();
 
         if (map != currentMap)
