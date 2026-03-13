@@ -182,5 +182,9 @@ public class UndoSystem : MonoBehaviour
 
         while (checkpoints.Count > 0 && history.Count < checkpoints.Peek())
             checkpoints.Pop();
+
+        Player player = FindObjectOfType<Player>();
+        if (player != null)
+            player.UpdateCurrentMap();
     }
 }
