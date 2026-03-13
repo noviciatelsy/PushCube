@@ -4,7 +4,9 @@ using UnityEngine;
 public class UndoSystem : MonoBehaviour
 {
     public static UndoSystem Instance;
+    Dictionary<MapRoot, int> mapCheckpoints = new Dictionary<MapRoot, int>();
 
+    MapRoot currentMap;
     interface IUndoCommand
     {
         void Undo();
@@ -99,7 +101,7 @@ public class UndoSystem : MonoBehaviour
             Undo();
 
         if (Input.GetKeyDown(KeyCode.R))
-            UndoToCheckpoint();
+            UndoToMapCheckpoint();
     }
 
     public void SetCheckpoint()
@@ -107,12 +109,35 @@ public class UndoSystem : MonoBehaviour
         checkpoints.Push(history.Count);
     }
 
-    void UndoToCheckpoint()
+    void UndoToMapCheckpoint()
     {
-        if (checkpoints.Count == 0) return;
-        int target = checkpoints.Peek();
+        if (currentMap == null)
+            return;
+
+        if (!mapCheckpoints.ContainsKey(currentMap))
+            return;
+
+        int target = mapCheckpoints[currentMap];
+
         while (history.Count > target)
             Undo();
+    }
+
+    //void UndoToCheckpoint()
+    //{
+    //    if (checkpoints.Count == 0) return;
+    //    int target = checkpoints.Peek();
+    //    while (history.Count > target)
+    //        Undo();
+    //}
+    public void SetCheckpoint(MapRoot map)
+    {
+        currentMap = map;
+
+        if (!mapCheckpoints.ContainsKey(map))
+        {
+            mapCheckpoints[map] = history.Count;
+        }
     }
 
     // ---------------- Action Recording ----------------
