@@ -108,7 +108,7 @@ public class MovementSystem : MonoBehaviour
         }
         Box box = GridManager.Instance.GetObject<Box>(target);
 
-        
+        UndoSystem.Instance.BeginAction();
 
         // -------- 玩家前方有箱子 --------
         if (box != null)
@@ -199,7 +199,6 @@ public class MovementSystem : MonoBehaviour
             // Electric ground
             
         }
-        else Debug.Log("4");
 
         // ======================================
         // [ICE MODIFY] 玩家滑行
@@ -239,39 +238,13 @@ public class MovementSystem : MonoBehaviour
         player.UpdateCurrentMap();
         UndoSystem.Instance.EndAction();
 
-        UndoSystem.Instance.BeginAction();
-        void CheckLandingEffect()
-        {
-            var cell = GridManager.Instance.GetCell(player.GridPos);
-            if (cell == null) return;
+        //CheckLandingEffect();
 
-            // 检测是否是电击格
-            if (cell.ground is ElectricGround electric)
-            {
-                electric.OnPlayerStep(player.GridPos);
-            }
-        }
-
-        void TryMove(Vector2Int dir, MovementSystem movementSystem)
-        {
-            Vector2Int newPos = player.GridPos + dir;
-
-            if (!GridManager.Instance.HasGround(newPos)) return;
-            if (GridManager.Instance.IsBlocked(newPos)) return;
-
-            UndoSystem.Instance.BeginAction();
-            UndoSystem.Instance.RecordMove(moveobject, player.GridPos);   // 记录移动前位置
-
-            GridManager.Instance.MoveObject(this, newPos);
-
-            CheckLandingEffect();  // ← 移动后检测特殊格
-
-            UndoSystem.Instance.EndAction();
-        }
     }
 
     System.Collections.IEnumerator AnimateMove(Transform obj, Vector3 start, Vector3 end)
     {
+        isMoving = true;
         float t = 0;
 
         while (t < moveDuration)
@@ -285,6 +258,14 @@ public class MovementSystem : MonoBehaviour
         }
 
         obj.position = end;
+
+        isMoving = false;
+
+        // 动画结束后检测地面效果
+        if (obj == player.transform)
+        {
+            //CheckLandingEffect();
+        }
     }
 
     System.Collections.IEnumerator AnimateObjects(
@@ -313,6 +294,12 @@ public class MovementSystem : MonoBehaviour
         if (boxT != null)
             boxT.position = boxEnd;
 
+        isMoving = false;
+    }
+
+    public void StopAllMovement()
+    {
+        StopAllCoroutines();
         isMoving = false;
     }
 }

@@ -109,18 +109,28 @@ public class UndoSystem : MonoBehaviour
         checkpoints.Push(history.Count);
     }
 
-    void UndoToMapCheckpoint()
+    public void UndoToMapCheckpoint()
     {
+        Debug.Log("UndoToMapCheckpoint called");
         if (currentMap == null)
+        {
+            Debug.Log("currentMap NULL");
             return;
+        }
 
         if (!mapCheckpoints.ContainsKey(currentMap))
+        {
+            Debug.Log("map checkpoint not found");
             return;
+        }
 
+        FindObjectOfType<MovementSystem>()?.StopAllMovement();
         int target = mapCheckpoints[currentMap];
 
         while (history.Count > target)
             Undo();
+
+
     }
 
     //void UndoToCheckpoint()

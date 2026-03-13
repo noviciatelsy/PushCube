@@ -1,15 +1,30 @@
 using UnityEngine;
 
-public class ElectricGround : Ground
+public class ElectricGround : PressurePlate
 {
-    // 可在Inspector中设置原点，默认(0,0)
-    public Vector2Int originPos = Vector2Int.zero;
-
-    // 触发电击效果，由Player调用
-    public void OnPlayerStep(GridObject player)
+    protected override void OnPress()
     {
-        // 记录Undo：先记录player当前位置，再移动
-        UndoSystem.Instance.RecordMove(player, player.GridPos);
-        GridManager.Instance.MoveObject(player, originPos);
+        base.OnPress();
+
+        var cell = GridManager.Instance.GetCell(GridPos);
+
+        if (cell == null)
+            return;
+
+        foreach (var obj in cell.objects)
+        {
+            if (obj is Player)
+            {
+                Debug.Log("Electric Ground Triggered");
+
+                UndoSystem.Instance.UndoToMapCheckpoint();
+                break;
+            }
+        }
+    }
+
+    protected override void OnRelease()
+    {
+        base.OnRelease();
     }
 }
