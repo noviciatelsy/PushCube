@@ -10,7 +10,7 @@ public class PressurePlate : Ground
         return obj != null;
     }
 
-    void Update()
+    void LateUpdate()
     {
         CheckPlate();
     }

@@ -85,7 +85,12 @@ public class MovementSystem : MonoBehaviour
 
     void TryMove(Vector2Int dir)
     {
+        Debug.Log($"[Move] Player at {player.GridPos} dir {dir}");
+
         Vector2Int target = player.GridPos + dir;
+
+        Debug.Log($"[Move] Target = {target}");
+
 
         // 目标格子必须有地面
         if (!GridManager.Instance.HasGround(target))
@@ -106,13 +111,31 @@ public class MovementSystem : MonoBehaviour
             Debug.Log("3");
             return;
         }
-        Box box = GridManager.Instance.GetObject<Box>(target);
+
+        Box box = GridManager.Instance.GetBoxAt(target);
+
+        if (box != null)
+        {
+            Debug.Log($"[Move] Box detected at {target}, type={box.GetType().Name}, occupies: {string.Join(",", box.GetOccupiedCells())}");
+        }
+        else
+        {
+            Debug.Log($"[Move] No box at {target}");
+        }
 
         UndoSystem.Instance.BeginAction();
 
         // -------- 玩家前方有箱子 --------
         if (box != null)
         {
+            //Vector2Int boxTarget = box.GridPos + dir;
+            // 判断多格箱子是否可以移动
+            if (!CanMoveBox(box, dir))
+            {
+                UndoSystem.Instance.EndAction();
+                return;
+            }
+            // 获取新位置
             Vector2Int boxTarget = box.GridPos + dir;
 
             // 箱子前方有地面才能尝试推动
@@ -157,11 +180,6 @@ public class MovementSystem : MonoBehaviour
             // ======================================
             if (IsIce(boxTarget))
             {
-                //Vector2Int slideEnd = GetBoxSlideEnd(boxTarget, dir);
-
-                //UndoSystem.Instance.RecordMove(box, box.GridPos);
-                //GridManager.Instance.MoveObject(box, slideEnd);
-
                 Vector2Int slideEnd = GetBoxSlideEnd(boxTarget, dir);
 
                 Vector3 boxStart = box.transform.position;
@@ -179,8 +197,6 @@ public class MovementSystem : MonoBehaviour
             // -------- 推动普通箱子 --------
             if (frontBox == null && !GridManager.Instance.IsBlocked(boxTarget))
             {
-                //UndoSystem.Instance.RecordMove(box, box.GridPos);
-                //GridManager.Instance.MoveObject(box, boxTarget);
                 Vector3 boxStart = box.transform.position;
                 Vector3 boxEnd = new Vector3(boxTarget.x, 0, boxTarget.y);
 
@@ -205,10 +221,6 @@ public class MovementSystem : MonoBehaviour
         // ======================================
         if (IsIce(target))
         {
-            //Vector2Int slideEnd = GetPlayerSlideEnd(target, dir);
-
-            //UndoSystem.Instance.RecordMove(player, player.GridPos);
-            //GridManager.Instance.MoveObject(player, slideEnd);
             Vector2Int slideEnd = GetPlayerSlideEnd(target, dir);
 
             Vector3 start1 = player.transform.position;
@@ -237,8 +249,6 @@ public class MovementSystem : MonoBehaviour
 
         player.UpdateCurrentMap();
         UndoSystem.Instance.EndAction();
-
-        //CheckLandingEffect();
 
     }
 
@@ -301,5 +311,50 @@ public class MovementSystem : MonoBehaviour
     {
         StopAllCoroutines();
         isMoving = false;
+    }
+
+    bool CanMoveBox(Box box, Vector2Int dir)
+    {
+        var frontCells = GetBoxFrontCells(box, dir);
+
+        foreach (var pos in frontCells)
+        {
+            if (!GridManager.Instance.HasGround(pos))
+                return false;
+
+            if (GridManager.Instance.IsBlocked(pos))
+                return false;
+        }
+
+        return true;
+    }
+    System.Collections.Generic.List<Vector2Int> GetBoxFrontCells(Box box, Vector2Int dir)
+    {
+        var cells = box.GetOccupiedCells();
+        var result = new System.Collections.Generic.List<Vector2Int>();
+
+        Debug.Log($"[BoxCheck] Checking front cells for {box.name}");
+
+        foreach (var c in cells)
+        {
+            Vector2Int front = c + dir;
+
+            Debug.Log($"[BoxCheck] cell {c} -> front {front}");
+
+            if (cells.Contains(front))
+            {
+                Debug.Log($"[BoxCheck] skip internal {front}");
+                continue;
+            }
+
+            result.Add(front);
+        }
+
+        foreach (var r in result)
+        {
+            Debug.Log($"[BoxCheck] FRONT CELL = {r}");
+        }
+
+        return result;
     }
 }

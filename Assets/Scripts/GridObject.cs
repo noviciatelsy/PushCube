@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public enum GridObjectType
 {
@@ -10,6 +11,8 @@ public enum GridObjectType
     MergeBox3,
     Wall,
     Ground,
+    IceGround,
+    ElectricGround,
     Door
 }
 
@@ -21,6 +24,11 @@ public class GridObject : MonoBehaviour
     protected virtual void Awake()
     {
        
+    }
+
+    public virtual List<Vector2Int> GetOccupiedCells()
+    {
+        return new List<Vector2Int>() { GridPos };
     }
 
     void OnEnable()

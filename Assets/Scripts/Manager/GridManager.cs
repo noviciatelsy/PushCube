@@ -108,4 +108,37 @@ public class GridManager : MonoBehaviour
 
         Register(obj);
     }
+
+    // 返回当前场景中所有 Box（StickyBox/普通Box）
+    public List<Box> GetAllBoxes()
+    {
+        var result = new List<Box>();
+
+        foreach (var kvp in grid)
+        {
+            var cell = kvp.Value;
+            foreach (var obj in cell.objects)
+            {
+                if (obj is Box box && !result.Contains(box))
+                {
+                    result.Add(box);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    // 返回目标格子上的 Box（支持多格子 StickyBox）
+    public Box GetBoxAt(Vector2Int pos)
+    {
+        foreach (var box in GetAllBoxes())
+        {
+            var occupied = box.GetOccupiedCells();
+            if (occupied.Contains(pos))
+                return box;
+        }
+
+        return null;
+    }
 }
