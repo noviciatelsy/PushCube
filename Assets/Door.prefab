@@ -25,7 +25,7 @@ Transform:
   m_GameObject: {fileID: 4554585361339154421}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: -2, z: 0}
+  m_LocalPosition: {x: 0, y: -20, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -173,9 +173,10 @@ MonoBehaviour:
   objectType: 6
   linkedPlates: []
   cubes: {fileID: 6296001556380052592}
-  closedPos: {x: 0, y: -2, z: 0}
+  closedPos: {x: 0, y: -20, z: 0}
   openPos: {x: 0, y: 0, z: 0}
-  moveTime: 0.1
+  moveTime: 0.25
+  isOpen: 0
 --- !u!114 &820259542037312958
 MonoBehaviour:
   m_ObjectHideFlags: 0
