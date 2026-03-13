@@ -1,10 +1,10 @@
 using UnityEngine;
-using System;
 
 public class PressurePlate : Ground
 {
     public bool pressed;
 
+    // 判断对象是否有效触发板子
     public virtual bool IsValidTrigger(GridObject obj)
     {
         return obj != null;
@@ -15,31 +15,42 @@ public class PressurePlate : Ground
         CheckPlate();
     }
 
-    void CheckPlate()
+    public void CheckPlate()
     {
-        var cell = GridManager.Instance.GetCell(GridPos);
-
-        if (cell == null)
-            return;
-
         bool found = false;
 
-        foreach (var obj in cell.objects)
+        // 检查当前格子
+        var cell = GridManager.Instance.GetCell(GridPos);
+        if (cell != null)
         {
-            if (IsValidTrigger(obj))
+            foreach (var obj in cell.objects)
             {
-                found = true;
-                break;
+                if (IsValidTrigger(obj))
+                {
+                    found = true;
+                    break;
+                }
+
+                // 支持多格对象，比如箱子
+                if (obj is Box box)
+                {
+                    var occupied = box.GetOccupiedCells();
+                    if (occupied.Contains(GridPos))
+                    {
+                        found = true;
+                        break;
+                    }
+                }
             }
         }
 
+        // 更新板子状态
         if (found && !pressed)
         {
             pressed = true;
             OnPress();
         }
-
-        if (!found && pressed)
+        else if (!found && pressed)
         {
             pressed = false;
             OnRelease();
@@ -48,7 +59,7 @@ public class PressurePlate : Ground
 
     protected virtual void OnPress()
     {
-        Debug.Log("Pressure Plate Pressed");
+        //Debug.Log("Pressure Plate Pressed");
     }
 
     protected virtual void OnRelease()

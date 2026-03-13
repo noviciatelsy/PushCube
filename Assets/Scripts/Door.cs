@@ -10,7 +10,7 @@ public class Door : GridObject
     public Transform cubes;
 
     [Header("门高度偏移")]
-    public Vector3 closedPos = new Vector3(0, -2f, 0);
+    public Vector3 closedPos = new Vector3(0, -20f, 0);
     public Vector3 openPos = Vector3.zero;
 
     [Header("动画时间")]

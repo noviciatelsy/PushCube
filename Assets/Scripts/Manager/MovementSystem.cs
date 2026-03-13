@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
 
 public class MovementSystem : MonoBehaviour
 {
@@ -85,136 +87,56 @@ public class MovementSystem : MonoBehaviour
 
     void TryMove(Vector2Int dir)
     {
-
         Vector2Int target = player.GridPos + dir;
 
-        // 目标格子必须有地面
         if (!GridManager.Instance.HasGround(target))
-        {
-            Debug.Log("1");
             return;
-        }
 
         Wall wall = GridManager.Instance.GetObject<Wall>(target);
         Door door = GridManager.Instance.GetObject<Door>(target);
-        if (wall != null)
-        {
-            Debug.Log("2");
+        if (wall != null || (door != null && !door.isOpen))
             return;
-        }
-        if (door != null && !door.isOpen)
-        {
-            Debug.Log("3");
-            return;
-        }
 
         Box box = GridManager.Instance.GetBoxAt(target);
 
-        if (box != null)
-        {
-            //Debug.Log($"[Move] Box detected at {target}, type={box.GetType().Name}, occupies: {string.Join(",", box.GetOccupiedCells())}");
-        }
-        else
-        {
-            Debug.Log($"[Move] No box at {target}");
-        }
-
         UndoSystem.Instance.BeginAction();
 
-        // -------- 玩家前方有箱子 --------
         if (box != null)
         {
-            //Vector2Int boxTarget = box.GridPos + dir;
-            // 判断多格箱子是否可以移动
-            if (!CanMoveBox(box, dir))
-            {
-                UndoSystem.Instance.EndAction();
-                return;
-            }
-            // 获取新位置
-            Vector2Int boxTarget = box.GridPos + dir;
+            // 获取前沿格子
+            var frontCells = GetBoxFrontCells(box, dir);
 
-            // 箱子前方有地面才能尝试推动
-            if (!GridManager.Instance.HasGround(boxTarget))
+            // 检查是否可以推动
+            bool canMove = true;
+            foreach (var cell in frontCells)
             {
-                UndoSystem.Instance.EndAction();
-                return;
-            }
-
-            Box frontBox = GridManager.Instance.GetObject<Box>(boxTarget);
-
-            // -------- 合成逻辑 --------
-            if (box is MergeBox mb1 && frontBox is MergeBox mb2 && mb1.CanMerge(mb2))
-            {
-                // 合成前必须箱子无法移动才允许合成
-                if (GridManager.Instance.IsBlocked(boxTarget))
+                if (!GridManager.Instance.HasGround(cell) || GridManager.Instance.IsBlocked(cell))
                 {
-                    // 隐藏旧箱子
-                    UndoSystem.Instance.RecordDestroy(mb1, hideOnly: true);
-                    UndoSystem.Instance.RecordDestroy(mb2, hideOnly: true);
-
-                    // 生成新箱子
-                    MergeBox newBox = mb1.MergeWith(mb2);
-                    UndoSystem.Instance.RecordSpawn(newBox);
-
-                    // 移动玩家
-                    UndoSystem.Instance.RecordMove(player, player.GridPos);
-                    GridManager.Instance.MoveObject(player, target);
-
-                    UndoSystem.Instance.EndAction();
-                    return;
-                }
-                else
-                {
-                    // 后面有空地，不能合成，只能推动
-                    frontBox = null;
+                    canMove = false;
+                    break;
                 }
             }
 
-            // ======================================
-            // [ICE MODIFY] 冰面箱子滑行
-            // ======================================
-            if (IsIce(boxTarget))
+            if (!canMove)
             {
-                Vector2Int slideEnd = GetBoxSlideEnd(boxTarget, dir);
-
-                Vector3 boxStart = box.transform.position;
-                Vector3 boxEnd = new Vector3(slideEnd.x, 0, slideEnd.y);
-
-                UndoSystem.Instance.RecordMove(box, box.GridPos);
-                GridManager.Instance.MoveObject(box, slideEnd);
-
-                StartCoroutine(AnimateMove(box.transform, boxStart, boxEnd));
-                // 玩家不移动
                 UndoSystem.Instance.EndAction();
                 return;
             }
 
-            // -------- 推动普通箱子 --------
-            if (frontBox == null && !GridManager.Instance.IsBlocked(boxTarget))
-            {
-                Vector3 boxStart = box.transform.position;
-                Vector3 boxEnd = new Vector3(boxTarget.x, 0, boxTarget.y);
+            // 计算整体移动偏移量
+            Vector2Int moveDelta = dir;
 
-                UndoSystem.Instance.RecordMove(box, box.GridPos);
-                GridManager.Instance.MoveObject(box, boxTarget);
+            // 实际移动 Box 所有占据格子
+            Vector3 boxStart = box.transform.position;
+            Vector3 boxEnd = boxStart + new Vector3(moveDelta.x, 0, moveDelta.y);
 
-                StartCoroutine(AnimateMove(box.transform, boxStart, boxEnd));
-            }
-            else if (frontBox != null || GridManager.Instance.IsBlocked(boxTarget))
-            {
-                // 箱子后面被阻挡，无法推动
-                UndoSystem.Instance.EndAction();
-                return;
-            }
+            UndoSystem.Instance.RecordMove(box, box.GridPos);
+            GridManager.Instance.MoveObject(box, box.GridPos + moveDelta);
 
-            // Electric ground
-            
+            StartCoroutine(AnimateMove(box.transform, boxStart, boxEnd));
         }
 
-        // ======================================
-        // [ICE MODIFY] 玩家滑行
-        // ======================================
+        // 玩家冰面滑行
         if (IsIce(target))
         {
             Vector2Int slideEnd = GetPlayerSlideEnd(target, dir);
@@ -232,11 +154,9 @@ public class MovementSystem : MonoBehaviour
             return;
         }
 
-        // -------- 移动玩家 --------
-        //UndoSystem.Instance.RecordMove(player, player.GridPos);
-        //GridManager.Instance.MoveObject(player, target);
+        // 普通玩家移动
         Vector3 start = player.transform.position;
-        Vector3 end = new Vector3(target.x, 0, target.y);
+        Vector3 end = start + new Vector3(dir.x, 0, dir.y);
 
         UndoSystem.Instance.RecordMove(player, player.GridPos);
         GridManager.Instance.MoveObject(player, target);
@@ -245,9 +165,7 @@ public class MovementSystem : MonoBehaviour
 
         player.UpdateCurrentMap();
         UndoSystem.Instance.EndAction();
-
     }
-
     System.Collections.IEnumerator AnimateMove(Transform obj, Vector3 start, Vector3 end)
     {
         isMoving = true;
@@ -313,40 +231,66 @@ public class MovementSystem : MonoBehaviour
     {
         var frontCells = GetBoxFrontCells(box, dir);
 
+        Debug.Log($"[CanMoveBox] Trying to move {box.name} dir={dir} frontCells={string.Join(",", frontCells.Select(c => $"({c.x},{c.y})"))}");
+
         foreach (var pos in frontCells)
         {
-            if (!GridManager.Instance.HasGround(pos))
+            bool hasGround = GridManager.Instance.HasGround(pos);
+            bool blocked = GridManager.Instance.IsBlocked(pos);
+
+            Debug.Log($"[CanMoveBox] Checking cell {pos}: HasGround={hasGround}, IsBlocked={blocked}");
+
+            // 每个前沿格子必须有地面
+            if (!hasGround)
                 return false;
 
-            if (GridManager.Instance.IsBlocked(pos))
+            // 每个前沿格子必须不阻挡
+            if (blocked)
                 return false;
         }
 
         return true;
     }
+
     System.Collections.Generic.List<Vector2Int> GetBoxFrontCells(Box box, Vector2Int dir)
     {
-        var cells = box.GetOccupiedCells();
+        var occupied = box.GetOccupiedCells();
         var result = new System.Collections.Generic.List<Vector2Int>();
 
-        //Debug.Log($"[BoxCheck] Checking front cells for {box.name}");
-
-        foreach (var c in cells)
+        if (dir == Vector2Int.up)
         {
-            Vector2Int front = c + dir;
-
-            //Debug.Log($"[BoxCheck] cell {c} -> front {front}");
-
-            if (cells.Contains(front))
-            {
-                //Debug.Log($"[BoxCheck] skip internal {front}");
-                continue;
-            }
-
-            result.Add(front);
+            int maxY = int.MinValue;
+            foreach (var c in occupied) if (c.y > maxY) maxY = c.y;
+            foreach (var c in occupied)
+                if (c.y == maxY)
+                    result.Add(c + dir);
+        }
+        else if (dir == Vector2Int.down)
+        {
+            int minY = int.MaxValue;
+            foreach (var c in occupied) if (c.y < minY) minY = c.y;
+            foreach (var c in occupied)
+                if (c.y == minY)
+                    result.Add(c + dir);
+        }
+        else if (dir == Vector2Int.right)
+        {
+            int maxX = int.MinValue;
+            foreach (var c in occupied) if (c.x > maxX) maxX = c.x;
+            foreach (var c in occupied)
+                if (c.x == maxX)
+                    result.Add(c + dir);
+        }
+        else if (dir == Vector2Int.left)
+        {
+            int minX = int.MaxValue;
+            foreach (var c in occupied) if (c.x < minX) minX = c.x;
+            foreach (var c in occupied)
+                if (c.x == minX)
+                    result.Add(c + dir);
         }
 
-
+        Debug.Log($"[GetBoxFrontCells] {box.name} dir={dir} frontCells={string.Join(",", result.Select(c => $"({c.x},{c.y})"))}");
         return result;
     }
 }
