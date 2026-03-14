@@ -147,13 +147,28 @@ public class MovementSystem : MonoBehaviour
                 return;
             }
 
-            Vector2Int moveDelta = dir;
+            //Vector2Int moveDelta = dir;
+
+            //Vector3 boxStart = box.transform.position;
+            //Vector3 boxEnd = boxStart + new Vector3(moveDelta.x, 0, moveDelta.y);
+
+            //UndoSystem.Instance.RecordMove(box, box.GridPos);
+            //GridManager.Instance.MoveObject(box, box.GridPos + moveDelta);
+
+            //StartCoroutine(AnimateMove(box.transform, boxStart, boxEnd));
+            Vector2Int boxTarget = box.GridPos + dir;
+
+            // 如果前方是冰面，箱子滑行
+            if (IsIce(boxTarget))
+            {
+                boxTarget = GetBoxSlideEnd(boxTarget, dir);
+            }
 
             Vector3 boxStart = box.transform.position;
-            Vector3 boxEnd = boxStart + new Vector3(moveDelta.x, 0, moveDelta.y);
+            Vector3 boxEnd = new Vector3(boxTarget.x, 0, boxTarget.y);
 
             UndoSystem.Instance.RecordMove(box, box.GridPos);
-            GridManager.Instance.MoveObject(box, box.GridPos + moveDelta);
+            GridManager.Instance.MoveObject(box, boxTarget);
 
             StartCoroutine(AnimateMove(box.transform, boxStart, boxEnd));
         }

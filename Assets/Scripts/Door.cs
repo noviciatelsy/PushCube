@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.VisualScripting.Antlr3.Runtime;
 using UnityEngine;
 
 public class Door : GridObject
@@ -17,6 +18,9 @@ public class Door : GridObject
     public float moveTime = 0.1f;
 
     public bool isOpen = false;
+    private bool electricOpen = false;
+    private bool plateOpen = false;
+
     private Vector3 targetPos;
     private Vector3 startPos;
     private float animProgress = 1f;
@@ -39,9 +43,12 @@ public class Door : GridObject
         // ----------------------------
         // 原本绑定板子的检测逻辑保留
         // ----------------------------
-        bool allPressed = true;
+        bool allPressed = false;
+
         if (linkedPlates != null && linkedPlates.Count > 0)
         {
+            allPressed = true;
+
             foreach (var plate in linkedPlates)
             {
                 if (plate == null || !plate.pressed)
@@ -50,15 +57,11 @@ public class Door : GridObject
                     break;
                 }
             }
-
-            if (allPressed != isOpen)
-            {
-                isOpen = allPressed;
-                startPos = cubes.localPosition;
-                targetPos = isOpen ? openPos : closedPos;
-                animProgress = 0f;
-            }
         }
+
+        plateOpen = allPressed;
+
+        UpdateDoorState();
 
         // ----------------------------
         // 动画插值
@@ -68,6 +71,23 @@ public class Door : GridObject
             animProgress += Time.deltaTime / moveTime;
             if (animProgress > 1f) animProgress = 1f;
             cubes.localPosition = Vector3.Lerp(startPos, targetPos, animProgress);
+        }
+    }
+
+    void UpdateDoorState()
+    {
+        bool finalOpen = electricOpen || plateOpen;
+
+        if (finalOpen == isOpen)
+            return;
+
+        isOpen = finalOpen;
+
+        if (cubes != null)
+        {
+            startPos = cubes.localPosition;
+            targetPos = isOpen ? openPos : closedPos;
+            animProgress = 0f;
         }
     }
 
@@ -81,14 +101,16 @@ public class Door : GridObject
     // ----------------------------
     public void SetOpenFromController(bool open)
     {
-        if (isOpen == open) return;
+        //if (isOpen == open) return;
 
-        isOpen = open;
-        if (cubes != null)
-        {
-            startPos = cubes.localPosition;
-            targetPos = isOpen ? openPos : closedPos;
-            animProgress = 0f;
-        }
+        //isOpen = open;
+        //if (cubes != null)
+        //{
+        //    startPos = cubes.localPosition;
+        //    targetPos = isOpen ? openPos : closedPos;
+        //    animProgress = 0f;
+        //}
+        electricOpen = open;
+        UpdateDoorState();
     }
 }

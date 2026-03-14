@@ -31,11 +31,10 @@ public class PressurePlate : Ground
                     break;
                 }
 
-                // 支持多格对象，比如箱子
                 if (obj is Box box)
                 {
                     var occupied = box.GetOccupiedCells();
-                    if (occupied.Contains(GridPos))
+                    if (occupied.Contains(GridPos) && IsValidTrigger(obj))
                     {
                         found = true;
                         break;
