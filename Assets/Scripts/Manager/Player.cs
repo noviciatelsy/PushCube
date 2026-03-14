@@ -28,7 +28,7 @@ public class Player : GridObject
             return;
         }
 
-        Debug.Log(GridPos);
+        //Debug.Log(GridPos);
         MapRoot map = cell.ground.GetComponentInParent<MapRoot>();
 
         if (map != currentMap)

@@ -1,13 +1,20 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using static UnityEditor.PlayerSettings;
 
 public class MovementSystem : MonoBehaviour
 {
     public Player player;
     private float moveDuration = 0.1f;
+    public static MovementSystem Instance;
 
     bool isMoving = false;
+    void Awake()
+    {
+        Instance = this;
+    }
+
     void Update()
     {
         if (isMoving)
@@ -26,7 +33,7 @@ public class MovementSystem : MonoBehaviour
     // ==============================
     // [ICE NEW] 判断是否冰面
     // ==============================
-    bool IsIce(Vector2Int pos)
+    public bool IsIce(Vector2Int pos)
     {
         var cell = GridManager.Instance.GetCell(pos);
         if (cell == null) return false;
@@ -62,7 +69,7 @@ public class MovementSystem : MonoBehaviour
     // ==============================
     // [ICE NEW] 箱子滑行
     // ==============================
-    Vector2Int GetBoxSlideEnd(Vector2Int start, Vector2Int dir)
+    public Vector2Int GetBoxSlideEnd(Vector2Int start, Vector2Int dir)
     {
         Vector2Int pos = start;
 
@@ -98,8 +105,35 @@ public class MovementSystem : MonoBehaviour
             return;
 
         Box box = GridManager.Instance.GetBoxAt(target);
+        Debug.Log(target);
 
         UndoSystem.Instance.BeginAction();
+
+        // =========================
+        // 1. 玩家前方是 TransBox
+        // =========================
+        TransBox tb = GridManager.Instance.GetObject<TransBox>(target);
+        if (tb != null)
+        {
+            Debug.Log("TransBox!");
+            Vector2Int teleportPos = PHandleFrontTransBox(player, dir);
+
+            // 传送失败或被阻挡
+            if (teleportPos == player.GridPos)
+            {
+                UndoSystem.Instance.EndAction();
+                return;
+            }
+
+            // 传送成功，动画
+            Vector3 start1 = player.transform.position;
+            Vector3 end1 = new Vector3(teleportPos.x, 0, teleportPos.y);
+            StartCoroutine(AnimateMove(player.transform, start1, end1));
+
+            player.UpdateCurrentMap();
+            UndoSystem.Instance.EndAction();
+            return;
+        }
 
         if (box != null)
         {
@@ -147,16 +181,18 @@ public class MovementSystem : MonoBehaviour
                 return;
             }
 
-            //Vector2Int moveDelta = dir;
 
-            //Vector3 boxStart = box.transform.position;
-            //Vector3 boxEnd = boxStart + new Vector3(moveDelta.x, 0, moveDelta.y);
-
-            //UndoSystem.Instance.RecordMove(box, box.GridPos);
-            //GridManager.Instance.MoveObject(box, box.GridPos + moveDelta);
-
-            //StartCoroutine(AnimateMove(box.transform, boxStart, boxEnd));
             Vector2Int boxTarget = box.GridPos + dir;
+            //记录箱子传送移动
+            TransBox tb1 = GridManager.Instance.GetObject<TransBox>(boxTarget);
+            if (tb1 != null)
+            {
+                box.transform.position = tb1.pair.transform.position;
+                boxTarget = tb1.pair.GridPos + dir;
+                //UndoSystem.Instance.RecordMove(box, box.GridPos);
+                //GridManager.Instance.MoveObject(box, boxTarget1);
+                Debug.Log("boxtrans,from" + box.GridPos + " to " + boxTarget);
+            }
 
             // 如果前方是冰面，箱子滑行
             if (IsIce(boxTarget))
@@ -210,6 +246,11 @@ public class MovementSystem : MonoBehaviour
         UndoSystem.Instance.EndAction();
     }
 
+
+    public void MoveBox(Box box, Vector3 start, Vector3 end)
+    {
+        StartCoroutine(AnimateMove(box.transform, start, end));
+    }
 
     System.Collections.IEnumerator AnimateMove(Transform obj, Vector3 start, Vector3 end)
     {
@@ -272,7 +313,7 @@ public class MovementSystem : MonoBehaviour
         isMoving = false;
     }
 
-    bool CanMoveBox(Box box, Vector2Int dir)
+    public bool CanMoveBox(Box box, Vector2Int dir)
     {
         var frontCells = GetBoxFrontCells(box, dir);
 
@@ -283,6 +324,21 @@ public class MovementSystem : MonoBehaviour
             bool hasGround = GridManager.Instance.HasGround(pos);
             bool blocked = GridManager.Instance.IsBlocked(pos);
 
+            TransBox tb = GridManager.Instance.GetObject<TransBox>(pos);
+            if (tb != null)
+            {
+                Vector2Int TeleportPos;
+                if (tb.TryTeleport(false, dir, out TeleportPos))
+                {
+                    Debug.Log("can teleport");
+                    return true;
+                }
+                else
+                {
+                    Debug.Log("can't teleport");
+                    return false;
+                }
+            }
             Debug.Log($"[CanMoveBox] Checking cell {pos}: HasGround={hasGround}, IsBlocked={blocked}");
 
             // 每个前沿格子必须有地面
@@ -337,5 +393,24 @@ public class MovementSystem : MonoBehaviour
 
         Debug.Log($"[GetBoxFrontCells] {box.name} dir={dir} frontCells={string.Join(",", result.Select(c => $"({c.x},{c.y})"))}");
         return result;
+    }
+
+    Vector2Int PHandleFrontTransBox(Player player, Vector2Int dir)
+    {
+        Vector2Int targetPos = player.GridPos + dir;
+        TransBox tb = GridManager.Instance.GetObject<TransBox>(targetPos);
+        if (tb == null)
+            return targetPos; // 前方不是 TransBox，返回原目标
+
+        Vector2Int teleportPos;
+        if (!tb.TryTeleport(true, dir, out teleportPos))
+            return player.GridPos; // 传送失败，停在原地
+
+        // 移动玩家到出口
+        player.UpdateCurrentMap();
+        UndoSystem.Instance.RecordMove(player, player.GridPos);
+        GridManager.Instance.MoveObject(player, teleportPos);
+        Debug.Log(teleportPos);
+        return teleportPos;
     }
 }
