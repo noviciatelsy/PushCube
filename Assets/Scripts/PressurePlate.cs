@@ -47,6 +47,7 @@ public class PressurePlate : Ground
         if (found && !pressed)
         {
             pressed = true;
+            SoundManager.Instance.PlaySFX("Button");
             OnPress();
         }
         else if (!found && pressed)

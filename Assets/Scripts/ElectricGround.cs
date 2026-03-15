@@ -1,12 +1,33 @@
+using System;
 using UnityEngine;
 
 public class ElectricGround : PressurePlate
 {
     private bool lastPlayerOnPlate = false;
+    private bool lastPressed = false;
 
-    protected override void OnPress()
+    public event Action<ElectricGround> OnPressedChanged;
+
+    void LateUpdate()
     {
-        base.OnPress();
+        //base.CheckPlate();
+
+        if (UndoSystem.Instance != null && UndoSystem.Instance.IsUndoing)
+            return;
+
+        if (pressed != lastPressed)
+        {
+            lastPressed = pressed;
+            OnPressedChanged?.Invoke(this);
+        }
+
+        CheckPlayerUndo();
+    }
+
+    void CheckPlayerUndo()
+    {
+        if (UndoSystem.Instance != null && UndoSystem.Instance.IsUndoing)
+            return;
 
         var cell = GridManager.Instance.GetCell(GridPos);
         if (cell == null) return;
@@ -22,10 +43,8 @@ public class ElectricGround : PressurePlate
             }
         }
 
-        // 玩家踩上板子时触发 Undo，无视 pressed 状态
         if (playerOnPlate && !lastPlayerOnPlate)
         {
-            Debug.Log("Electric Ground Triggered by Player");
             UndoSystem.Instance.UndoToMapCheckpoint();
         }
 
@@ -35,23 +54,11 @@ public class ElectricGround : PressurePlate
     protected override void OnRelease()
     {
         base.OnRelease();
-
-        // 玩家离开板子时重置标记
         lastPlayerOnPlate = false;
     }
 
-    // 只要玩家或箱子在板子上，板子就被认为是 pressed
     public override bool IsValidTrigger(GridObject obj)
     {
         return obj is Player || obj is Box;
-    }
-
-    void LateUpdate()
-    {
-        // 先更新 pressed 状态（控制门）
-        base.CheckPlate();
-
-        // 再检查玩家触发 Undo
-        OnPress();
     }
 }

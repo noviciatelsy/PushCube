@@ -5,6 +5,7 @@ public class UndoSystem : MonoBehaviour
 {
     public static UndoSystem Instance;
     Dictionary<MapRoot, int> mapCheckpoints = new Dictionary<MapRoot, int>();
+    public bool IsUndoing { get; private set; }
 
     MapRoot currentMap;
     interface IUndoCommand
@@ -104,6 +105,9 @@ public class UndoSystem : MonoBehaviour
 
     void Update()
     {
+        if (!MovementSystem.Instance.inputEnabled)
+            return;
+
         if (Input.GetKeyDown(KeyCode.Z))
             Undo();
 
@@ -119,34 +123,68 @@ public class UndoSystem : MonoBehaviour
     public void UndoToMapCheckpoint()
     {
         Debug.Log("UndoToMapCheckpoint called");
+
         if (currentMap == null)
-        {
-            Debug.Log("currentMap NULL");
             return;
-        }
 
         if (!mapCheckpoints.ContainsKey(currentMap))
-        {
-            Debug.Log("map checkpoint not found");
             return;
-        }
-
-        FindObjectOfType<MovementSystem>()?.StopAllMovement();
+        IsUndoing = true;
         int target = mapCheckpoints[currentMap];
 
-        while (history.Count > target)
-            Undo();
+        // 停止移动
+        FindObjectOfType<MovementSystem>()?.StopAllMovement();
 
+        // =============================
+        // 记录当前状态 (用于Z恢复)
+        // =============================
+        BeginAction();
+
+        var allObjects = FindObjectsOfType<GridObject>();
+
+        Dictionary<GridObject, Vector2Int> beforePos =
+            new Dictionary<GridObject, Vector2Int>();
+
+        foreach (var obj in allObjects)
+        {
+            if (obj == null) continue;
+            if (obj is Ground) continue;
+            beforePos[obj] = obj.GridPos;
+        }
+
+        // =============================
+        // 恢复 checkpoint
+        // =============================
+        while (history.Count > target)
+        {
+            var action = history.Pop();
+
+            for (int i = action.commands.Count - 1; i >= 0; i--)
+                action.commands[i].Undo();
+        }
+
+        // =============================
+        // 记录恢复点
+        // =============================
+        foreach (var kv in beforePos)
+        {
+            if (kv.Key != null)
+                RecordMove(kv.Key, kv.Value);
+        }
+        var controllers = FindObjectsOfType<ElectricGroundController>();
+        foreach (var c in controllers)
+            c.SyncState();
+
+        EndAction();
+        IsUndoing = false;
+        // 更新玩家地图
+        Player player = FindObjectOfType<Player>();
+        if (player != null)
+            player.UpdateCurrentMap();
 
     }
 
-    //void UndoToCheckpoint()
-    //{
-    //    if (checkpoints.Count == 0) return;
-    //    int target = checkpoints.Peek();
-    //    while (history.Count > target)
-    //        Undo();
-    //}
+
     public void SetCheckpoint(MapRoot map)
     {
         currentMap = map;

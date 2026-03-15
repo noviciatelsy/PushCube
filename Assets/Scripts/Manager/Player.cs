@@ -5,11 +5,22 @@ using UnityEngine;
 public class Player : GridObject
 {
     public MapRoot currentMap;
+    Vector2Int lastGridPos;
 
     protected override void RegisterToGrid()
     {
         base.RegisterToGrid();
         UpdateCurrentMap();
+    }
+
+    void LateUpdate()
+    {
+        // 只有格子发生变化才更新
+        if (GridPos != lastGridPos)
+        {
+            lastGridPos = GridPos;
+            UpdateCurrentMap();
+        }
     }
 
     public void UpdateCurrentMap()

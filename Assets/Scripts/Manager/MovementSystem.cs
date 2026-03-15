@@ -1,33 +1,199 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
+using TMPro;
 using UnityEngine;
-using static UnityEditor.PlayerSettings;
+using Unity.VisualScripting;
 
 public class MovementSystem : MonoBehaviour
 {
     public Player player;
-    private float moveDuration = 0.1f;
+    private float moveDuration = 0.06f;
     public static MovementSystem Instance;
 
     bool isMoving = false;
     void Awake()
     {
         Instance = this;
+        inputEnabled = false;
+        Camera cam = Camera.main;
+        CameraFollowMap follow = cam.GetComponent<CameraFollowMap>();
+
+        if (follow != null)
+            follow.enableFollow = false;
+    }
+    public bool inputEnabled = false;
+
+    bool waitStartInput = true;
+    bool waitExitInput = false;
+    bool isStartZoomPlaying = false;
+
+    public GameObject startUI;   // GameObject1
+    public GameObject endUI;     // GameObject2
+
+    CanvasGroup startCanvas;
+    CanvasGroup endCanvas;
+
+    // 连续移动参数
+    float holdDelay = 0.15f;     // 长按开始连续移动的延迟
+    float holdInterval = 0.06f;  // 连续移动间隔
+
+    float holdTimer = 0f;
+    float repeatTimer = 0f;
+
+    Vector2Int holdDir = Vector2Int.zero;
+    bool holding = false;
+
+    IEnumerator StartCameraZoom()
+    {
+        inputEnabled = false;
+
+        Camera cam = Camera.main;
+        CameraFollowMap follow = cam.GetComponent<CameraFollowMap>();
+
+        if (follow != null)
+            follow.enableFollow = false;
+
+        float startSize = 12f;
+        float targetSize = 6f;
+
+        Vector3 startPos = new Vector3(-4.5f, 9f, -6f);
+        Vector3 targetPos = new Vector3(-1.5f, 3f, -2f);
+
+        cam.orthographicSize = startSize;
+
+        float time = 0f;
+        float duration = 3f;
+
+        while (time < duration)
+        {
+            time += Time.deltaTime;
+
+            float t = time / duration;
+
+            // 缓动 (先快后慢)
+            float ease = 1f - Mathf.Pow(1f - t, 3f);
+
+            cam.orthographicSize = Mathf.Lerp(startSize, targetSize, ease);
+            cam.transform.position = Vector3.Lerp(startPos, targetPos, ease);
+
+            yield return null;
+        }
+
+        cam.orthographicSize = targetSize;
+
+        if (follow != null)
+            follow.enableFollow = true;
+
+        waitStartInput = false;
+        inputEnabled = true;
+    }
+    void Start()
+    {
+        inputEnabled = false;
+
+        startCanvas = startUI.GetComponent<CanvasGroup>();
+        endCanvas = endUI.GetComponent<CanvasGroup>();
+
+        startUI.SetActive(true);
+        endUI.SetActive(false);
+
+        startCanvas.alpha = 1f;
     }
 
     void Update()
     {
+        if (waitStartInput)
+        {
+            if (Input.anyKeyDown && !isStartZoomPlaying)
+            {
+                isStartZoomPlaying = true;
+                StartCoroutine(StartCameraZoom());
+                StartCoroutine(FadeOutStartUI());
+            }
+            return;
+        }
+
+        if (waitExitInput)
+        {
+            if (Input.anyKeyDown)
+            {
+#if UNITY_EDITOR
+                UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
+            }
+            return;
+        }
+
+        if (!inputEnabled)
+            return;
+
         if (isMoving)
             return;
 
-        if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow))
-            TryMove(Vector2Int.up);
-        if (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow))
-            TryMove(Vector2Int.down);
-        if (Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.LeftArrow))
-            TryMove(Vector2Int.left);
-        if (Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow))
-            TryMove(Vector2Int.right);
+        HandleContinuousInput();
+    }
+
+    void HandleContinuousInput()
+    {
+        Vector2Int dir = Vector2Int.zero;
+
+        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
+            dir = Vector2Int.up;
+        else if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow))
+            dir = Vector2Int.down;
+        else if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
+            dir = Vector2Int.left;
+        else if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
+            dir = Vector2Int.right;
+
+        if (dir == Vector2Int.zero)
+        {
+            holding = false;
+            holdTimer = 0;
+            repeatTimer = 0;
+            return;
+        }
+
+        // 第一次按下
+        if (!holding)
+        {
+            holding = true;
+            holdDir = dir;
+
+            holdTimer = 0;
+            repeatTimer = 0;
+
+            TryMove(dir);   // 立即移动一次
+            return;
+        }
+
+        // 如果方向改变
+        if (dir != holdDir)
+        {
+            holdDir = dir;
+            holdTimer = 0;
+            repeatTimer = 0;
+
+            TryMove(dir);
+            return;
+        }
+
+        // 长按计时
+        holdTimer += Time.deltaTime;
+
+        if (holdTimer < holdDelay)
+            return;
+
+        repeatTimer += Time.deltaTime;
+
+        if (repeatTimer >= holdInterval)
+        {
+            repeatTimer = 0;
+            TryMove(dir);
+        }
     }
 
     // ==============================
@@ -105,7 +271,7 @@ public class MovementSystem : MonoBehaviour
             return;
 
         Box box = GridManager.Instance.GetBoxAt(target);
-        Debug.Log(target);
+        //Debug.Log(target);
 
         UndoSystem.Instance.BeginAction();
 
@@ -143,13 +309,14 @@ public class MovementSystem : MonoBehaviour
             // =========================
             // 1 先判断 Merge
             // =========================
-            if (box is MergeBox mb1 && frontBox is MergeBox mb2 && mb1.CanMerge(mb2))
+            if (box is MergeBox mb1 && frontBox is MergeBox mb2 && mb1.CanMerge(mb2) && mb1.level!=3)
             {
                 Debug.Log("[Merge] Boxes merging");
 
                 UndoSystem.Instance.RecordDestroy(mb1, true);
                 UndoSystem.Instance.RecordDestroy(mb2, true);
 
+                SoundManager.Instance.PlaySFX("Merge");
                 MergeBox newBox = mb1.MergeWith(mb2);
                 UndoSystem.Instance.RecordSpawn(newBox);
 
@@ -192,6 +359,7 @@ public class MovementSystem : MonoBehaviour
                 //UndoSystem.Instance.RecordMove(box, box.GridPos);
                 //GridManager.Instance.MoveObject(box, boxTarget1);
                 Debug.Log("boxtrans,from" + box.GridPos + " to " + boxTarget);
+                SoundManager.Instance.PlaySFX("Trans");
             }
 
             // 如果前方是冰面，箱子滑行
@@ -237,6 +405,7 @@ public class MovementSystem : MonoBehaviour
         Vector3 start = player.transform.position;
         Vector3 end = start + new Vector3(dir.x, 0, dir.y);
 
+        //SoundManager.Instance.PlaySFX("Walk");
         UndoSystem.Instance.RecordMove(player, player.GridPos);
         GridManager.Instance.MoveObject(player, target);
 
@@ -317,7 +486,7 @@ public class MovementSystem : MonoBehaviour
     {
         var frontCells = GetBoxFrontCells(box, dir);
 
-        Debug.Log($"[CanMoveBox] Trying to move {box.name} dir={dir} frontCells={string.Join(",", frontCells.Select(c => $"({c.x},{c.y})"))}");
+        //Debug.Log($"[CanMoveBox] Trying to move {box.name} dir={dir} frontCells={string.Join(",", frontCells.Select(c => $"({c.x},{c.y})"))}");
 
         foreach (var pos in frontCells)
         {
@@ -391,7 +560,7 @@ public class MovementSystem : MonoBehaviour
                     result.Add(c + dir);
         }
 
-        Debug.Log($"[GetBoxFrontCells] {box.name} dir={dir} frontCells={string.Join(",", result.Select(c => $"({c.x},{c.y})"))}");
+        //Debug.Log($"[GetBoxFrontCells] {box.name} dir={dir} frontCells={string.Join(",", result.Select(c => $"({c.x},{c.y})"))}");
         return result;
     }
 
@@ -410,7 +579,103 @@ public class MovementSystem : MonoBehaviour
         player.UpdateCurrentMap();
         UndoSystem.Instance.RecordMove(player, player.GridPos);
         GridManager.Instance.MoveObject(player, teleportPos);
+        SoundManager.Instance.PlaySFX("Trans");
         Debug.Log(teleportPos);
         return teleportPos;
+    }
+
+    public void CameraZoomOut()
+    {
+        StartCoroutine(CameraZoomOutCoroutine());
+        StartCoroutine(FadeInEndUI());
+    }
+    IEnumerator CameraZoomOutCoroutine()
+    {
+        inputEnabled = false;
+        Camera cam = Camera.main;
+        CameraFollowMap follow = cam.GetComponent<CameraFollowMap>();
+
+        if (follow != null)
+            follow.enableFollow = false;
+
+        float startSize = 6f;
+        float targetSize = 50f;
+
+        Vector3 startPos = new Vector3(-1.5f, 3f, -2f);
+        Vector3 targetPos = new Vector3(0f, 30f, -25f);
+
+        float time = 0f;
+        float duration = 10f;
+
+        while (time < duration)
+        {
+            time += Time.deltaTime;
+
+            float t = time / duration;
+
+            // 先快后慢缓动
+            float ease1 = 1f - Mathf.Pow(1f - t, 3f);
+
+            cam.transform.position = Vector3.Lerp(startPos, targetPos, t);
+            cam.orthographicSize = Mathf.Lerp(startSize, targetSize, t);
+
+            yield return null;
+        }
+
+        cam.transform.position = targetPos;
+        cam.orthographicSize = targetSize;
+
+        if (follow != null)
+            follow.enableFollow = true;
+
+        waitStartInput = false;
+        inputEnabled = true;
+
+        // 等待退出
+        waitExitInput = true;
+    }
+
+    IEnumerator FadeOutStartUI()
+    {
+        float time = 0f;
+        float duration = 2f;
+
+        while (time < duration)
+        {
+            time += Time.deltaTime;
+            float t = time / duration;
+
+            startCanvas.alpha = Mathf.Lerp(1f, 0f, t);
+
+            yield return null;
+        }
+
+        startCanvas.alpha = 0f;
+        startUI.SetActive(false);
+    }
+
+    IEnumerator FadeInEndUI()
+    {
+        Camera cam = Camera.main;
+        CameraFollowMap follow = cam.GetComponent<CameraFollowMap>();
+        if (follow != null)
+            follow.enableFollow = false;
+
+        endUI.SetActive(true);
+
+        float time = 0f;
+        float duration = 10f;
+
+        while (time < duration)
+        {
+            time += Time.deltaTime;
+            float t = time / duration;
+
+            endCanvas.alpha = Mathf.Lerp(0f, 1f, t);
+
+            yield return null;
+        }
+
+        endCanvas.alpha = 1f;
     }
 }
