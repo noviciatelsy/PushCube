@@ -57,7 +57,7 @@ MonoBehaviour:
   - {fileID: 578527063993100813}
   - {fileID: 1004671182313849668}
   - {fileID: 1242357483963714088}
-  islands: {fileID: 0}
+  islands: {fileID: 361012344969371006}
   closedPos: {x: 0, y: -20, z: 0}
   openPos: {x: 0, y: 0, z: 0}
   moveTime: 0.1

@@ -10,7 +10,7 @@ public class ElectricGround : PressurePlate
 
     void LateUpdate()
     {
-        //base.CheckPlate();
+        CheckPlate();
 
         if (UndoSystem.Instance != null && UndoSystem.Instance.IsUndoing)
             return;

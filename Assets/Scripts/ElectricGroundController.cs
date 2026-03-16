@@ -70,7 +70,10 @@ public class ElectricGroundController : MonoBehaviour
         foreach (var door in linkedDoors)
         {
             if (door != null)
+            {
                 door.SetOpenFromController(allPressed);
+                door.ForceUpdate();
+            }
         }
 
         if (islands != null)
@@ -80,6 +83,7 @@ public class ElectricGroundController : MonoBehaviour
             islandAnimProgress = 0f;
         }
     }
+
 
     void Update()
     {

@@ -7,6 +7,17 @@ public class UndoSystem : MonoBehaviour
     Dictionary<MapRoot, int> mapCheckpoints = new Dictionary<MapRoot, int>();
     public bool IsUndoing { get; private set; }
 
+    // =============================
+    // 长按Z连续撤回
+    // =============================
+    float undoHoldDelay = 0.3f;      // 长按开始时间
+    float undoInterval = 0.15f;       // 连续撤回间隔
+
+    float undoHoldTimer = 0f;
+    float undoRepeatTimer = 0f;
+
+    bool undoHolding = false;
+
     MapRoot currentMap;
     interface IUndoCommand
     {
@@ -98,6 +109,28 @@ public class UndoSystem : MonoBehaviour
 
     Stack<int> checkpoints = new Stack<int>();
 
+    // ---------------- MultiUndoCommand ----------------
+    class MultiUndoCommand : IUndoCommand
+    {
+        List<ActionRecord> undoneActions;
+
+        public MultiUndoCommand(List<ActionRecord> actions)
+        {
+            undoneActions = actions;
+        }
+
+        public void Undo()
+        {
+            // 重新执行这些Action
+            foreach (var action in undoneActions)
+            {
+                for (int i = 0; i < action.commands.Count; i++)
+                {
+                    action.commands[i].Undo();
+                }
+            }
+        }
+    }
     void Awake()
     {
         Instance = this;
@@ -108,13 +141,52 @@ public class UndoSystem : MonoBehaviour
         if (!MovementSystem.Instance.inputEnabled)
             return;
 
-        if (Input.GetKeyDown(KeyCode.Z))
-            Undo();
+        HandleUndoInput();
 
-        if (Input.GetKeyDown(KeyCode.R))
-            UndoToMapCheckpoint();
+        //if (Input.GetKeyDown(KeyCode.R))
+        //    UndoToMapCheckpoint();
     }
 
+    void HandleUndoInput()
+    {
+        // 松开键
+        if (!Input.GetKey(KeyCode.Z))
+        {
+            undoHolding = false;
+            undoHoldTimer = 0f;
+            undoRepeatTimer = 0f;
+            return;
+        }
+
+        // 第一次按下
+        if (Input.GetKeyDown(KeyCode.Z))
+        {
+            undoHolding = true;
+            undoHoldTimer = 0f;
+            undoRepeatTimer = 0f;
+
+            Undo(); // 立即撤回一次
+            return;
+        }
+
+        if (!undoHolding)
+            return;
+
+        undoHoldTimer += Time.deltaTime;
+
+        // 未到长按时间
+        if (undoHoldTimer < undoHoldDelay)
+            return;
+
+        undoRepeatTimer += Time.deltaTime;
+
+        if (undoRepeatTimer >= undoInterval)
+        {
+            undoRepeatTimer = 0f;
+            if (history.Count > 0)
+                Undo();
+        }
+    }
     public void SetCheckpoint()
     {
         checkpoints.Push(history.Count);
@@ -122,68 +194,44 @@ public class UndoSystem : MonoBehaviour
 
     public void UndoToMapCheckpoint()
     {
-        Debug.Log("UndoToMapCheckpoint called");
+        if (currentMap == null) return;
+        if (!mapCheckpoints.ContainsKey(currentMap)) return;
 
-        if (currentMap == null)
-            return;
-
-        if (!mapCheckpoints.ContainsKey(currentMap))
-            return;
-        IsUndoing = true;
         int target = mapCheckpoints[currentMap];
 
-        // 停止移动
+        if (history.Count <= target) return;
+
+        IsUndoing = true;
+
         FindObjectOfType<MovementSystem>()?.StopAllMovement();
 
-        // =============================
-        // 记录当前状态 (用于Z恢复)
-        // =============================
-        BeginAction();
+        List<ActionRecord> undoneActions = new List<ActionRecord>();
 
-        var allObjects = FindObjectsOfType<GridObject>();
-
-        Dictionary<GridObject, Vector2Int> beforePos =
-            new Dictionary<GridObject, Vector2Int>();
-
-        foreach (var obj in allObjects)
-        {
-            if (obj == null) continue;
-            if (obj is Ground) continue;
-            beforePos[obj] = obj.GridPos;
-        }
-
-        // =============================
-        // 恢复 checkpoint
-        // =============================
+        // 连续Undo直到checkpoint
         while (history.Count > target)
         {
             var action = history.Pop();
+            undoneActions.Add(action);
 
             for (int i = action.commands.Count - 1; i >= 0; i--)
                 action.commands[i].Undo();
         }
 
-        // =============================
-        // 记录恢复点
-        // =============================
-        foreach (var kv in beforePos)
-        {
-            if (kv.Key != null)
-                RecordMove(kv.Key, kv.Value);
-        }
+        // 把R操作记录成一个Undo
+        BeginAction();
+        currentAction.commands.Add(new MultiUndoCommand(undoneActions));
+        EndAction();
+
         var controllers = FindObjectsOfType<ElectricGroundController>();
         foreach (var c in controllers)
             c.SyncState();
 
-        EndAction();
-        IsUndoing = false;
-        // 更新玩家地图
         Player player = FindObjectOfType<Player>();
         if (player != null)
             player.UpdateCurrentMap();
 
+        IsUndoing = false;
     }
-
 
     public void SetCheckpoint(MapRoot map)
     {
@@ -230,6 +278,9 @@ public class UndoSystem : MonoBehaviour
     // ---------------- Undo ----------------
     void Undo()
     {
+        if (IsUndoing)
+            return;
+
         if (history.Count == 0) return;
         var action = history.Pop();
 

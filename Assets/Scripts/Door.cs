@@ -40,9 +40,20 @@ public class Door : GridObject
 
     void Update()
     {
-        // ----------------------------
-        // 原本绑定板子的检测逻辑保留
-        // ----------------------------
+        UpdatePlateState();
+
+        // 动画
+        if (cubes != null && animProgress < 1f)
+        {
+            animProgress += Time.deltaTime / moveTime;
+            if (animProgress > 1f) animProgress = 1f;
+
+            cubes.localPosition = Vector3.Lerp(startPos, targetPos, animProgress);
+        }
+    }
+
+    void UpdatePlateState()
+    {
         bool allPressed = false;
 
         if (linkedPlates != null && linkedPlates.Count > 0)
@@ -62,16 +73,11 @@ public class Door : GridObject
         plateOpen = allPressed;
 
         UpdateDoorState();
+    }
 
-        // ----------------------------
-        // 动画插值
-        // ----------------------------
-        if (cubes != null && animProgress < 1f)
-        {
-            animProgress += Time.deltaTime / moveTime;
-            if (animProgress > 1f) animProgress = 1f;
-            cubes.localPosition = Vector3.Lerp(startPos, targetPos, animProgress);
-        }
+    public void ForceUpdate()
+    {
+        UpdatePlateState();
     }
 
     void UpdateDoorState()
@@ -101,15 +107,7 @@ public class Door : GridObject
     // ----------------------------
     public void SetOpenFromController(bool open)
     {
-        //if (isOpen == open) return;
-
-        //isOpen = open;
-        //if (cubes != null)
-        //{
-        //    startPos = cubes.localPosition;
-        //    targetPos = isOpen ? openPos : closedPos;
-        //    animProgress = 0f;
-        //}
+        
         electricOpen = open;
         UpdateDoorState();
     }

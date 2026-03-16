@@ -330,11 +330,11 @@ public class MovementSystem : MonoBehaviour
             {
                 if (box is MergeBox && frontBox is MergeBox)
                 {
-                    Debug.Log("No1");
+                   // Debug.Log("No1");
                 }
                 else
                 {
-                    Debug.Log("No2");
+                   // Debug.Log("No2");
                 }
             }
 
